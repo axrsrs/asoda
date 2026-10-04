@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-uXfzqQKz9T+zBSJ/vBl80mlZi6BluKBexsv2B0ob4mk=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-SicjYGennNUHDGaKWkzljZKeynFUzqJOM42SPJkHjh4=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -368,7 +368,11 @@ function sanitizeCatalogData(data) {
     if (clean.pdf) {
         for (const k of ["title", "footer", "website", "catalogTitle"])
             clean.pdf[k] = safeShortText(clean.pdf[k], 200);
-        clean.pdf.catalogTemplate = ["klasik", "vitrin", "izgara", "dergi"].includes(clean.pdf.catalogTemplate) ? clean.pdf.catalogTemplate : "vitrin";
+        clean.pdf.catalogTemplate = ["akilli", "klasik", "vitrin", "izgara", "dergi"].includes(clean.pdf.catalogTemplate) ? clean.pdf.catalogTemplate : "akilli";
+        clean.pdf.priceTemplate = ["liste", "kompakt", "ozet"].includes(clean.pdf.priceTemplate) ? clean.pdf.priceTemplate : "liste";
+        clean.pdf.setsLast = clean.pdf.setsLast !== false;
+        clean.pdf.showDims = clean.pdf.showDims !== false;
+        clean.pdf.showSetNames = clean.pdf.showSetNames !== false;
         const lay = {}, srcLay = (clean.pdf.categoryLayouts && typeof clean.pdf.categoryLayouts === "object") ? clean.pdf.categoryLayouts : {};
         for (const fc of FIXED_CATEGORIES) {
             const v = srcLay[fc.id];
@@ -511,12 +515,12 @@ function defaultData() {
         currency: { selected: "TRY", usdRate: 40, eurRate: 47 },
         pricing: { vadeliRate: 10, showVadeli: true },
         categories: createDefaultCategories().map(c => ({ ...c, coverImage: ASODA_IMG[ASODA_CATEGORY_COVERS[c.id]] || null, items: preloadedItemsFor(c.id) })), language: "TR",
-        pdf: { title: "2026-3 TOPTAN FİYAT LİSTESİ (TL)", title_en: "2026-3 WHOLESALE PRICE LIST (TL)", footer: "www.asodamobilya.com", showPageNumbers: true, website: "www.asodamobilya.com", useCategoryCovers: true, catalogTitle: "ÜRÜN KATALOĞU", catalogTemplate: "vitrin", coverLogo: { src: DEFAULT_PDF_COVER_LOGO },
+        pdf: { title: "2026-3 TOPTAN FİYAT LİSTESİ (TL)", title_en: "2026-3 WHOLESALE PRICE LIST (TL)", footer: "www.asodamobilya.com", showPageNumbers: true, website: "www.asodamobilya.com", useCategoryCovers: true, catalogTitle: "ÜRÜN KATALOĞU", catalogTemplate: "akilli", coverLogo: { src: DEFAULT_PDF_COVER_LOGO },
             priceDate: "13.04.2026",
             headerText: "Asoda Fabrika : Organize Sanayi Böl. 4. cad. No:12 İnegöl / Bursa\nActive Fabrika : Mahmudiye mh. Tabakhane cd. No:2/1 İnegöl / Bursa\nMağaza : İnegöl Bursa Kry. 6. Km. Mobiliyum Avm A/ Etap No:28 İnegöl / Bursa\nwww.asodamobilya.com · www.activedesignsofa.com\ninfo@asodamobilya.com · info@activedesignsofa.com",
             notes: "TÜM KARYOLALARDA LATALI BAZA FİYAT FARKI 7000 TL'DİR.\nAQUA KOLTUK TAKIMINDA SIRT MİNDERİ VE KIRLENT FARKLI KUMAŞ OLDUĞUNDA İLAVE KUMAŞ BEDELİ YANSITILACAKTIR.\nFİYATLARIMIZA KDV DAHİL DEĞİLDİR.\nÖZEL SANDALYELERDE KUMAŞ MÜŞTERİYE AİTTİR.",
             notes_en: "THE PRICE DIFFERENCE FOR A SLATTED BED BASE IS 7000 TL FOR ALL BEDS.\nFOR AQUA SOFA SETS, AN EXTRA FABRIC CHARGE APPLIES WHEN BACK CUSHIONS AND PILLOWS ARE IN A DIFFERENT FABRIC.\nPRICES EXCLUDE VAT.\nFABRIC FOR CUSTOM CHAIRS IS SUPPLIED BY THE CUSTOMER.",
-            showActiveLogo: true, groupBy: "model" }
+            showActiveLogo: true, groupBy: "model", priceTemplate: "liste", setsLast: true, showDims: true, showSetNames: true }
     };
 }
 function priceNumber(value) {
@@ -560,6 +564,7 @@ function normalizePrice(price) {
         dims: typeof p.dims === "string" ? p.dims : "",
         dims_en: typeof p.dims_en === "string" ? p.dims_en : "",
         highlight: !!p.highlight,
+        ...(p.__sub ? { __sub: true } : {}),
         vadeli: priceNumber(p.vadeli),
         amount: priceNumber(p.amount),
         contactOnly: !!p.contactOnly,
@@ -1725,8 +1730,8 @@ function pdfVisibleRows(item, lang) {
 }
 function pdfCardHeight(item) {
     const L = PDF_LAYOUT, rows = pdfVisibleRows(item, "TR").reduce((a, r) => a + pdfRowUnits(r, "TR"), 0);
-    const need = L.titleH + L.headerH + rows * PDF_ROW_MIN_H + 2;
-    return Math.max(L.cardH, Math.ceil(need));
+    const need = L.titleH + L.headerH + rows * pdfPriceStyle.rowMin + 2;
+    return Math.max(pdfPriceStyle.cardMin, Math.ceil(need));
 }
 let pdfTotalPagesHint = 0;
 function pdfRailChrome(data, pageNo) {
@@ -1767,6 +1772,25 @@ function pdfPageChrome(data, pageNo, lang = "TR") {
     return c;
 }
 const PDF_PRICE_COL_W = 64;
+const PDF_PRICE_TEMPLATES = [
+    { id: "liste", name: "Asoda Liste", desc: "Fotoğraflı, tüm modüller + takımlar. Takım satırları tablonun altında toplanır. Bayi ve mağaza için." },
+    { id: "kompakt", name: "Kompakt", desc: "Küçük fotoğraf, sık satır. Aynı bilgi daha az sayfada; yazdırmak ve hızlı bakmak için." },
+    { id: "ozet", name: "Takım Fiyatları", desc: "Sadece takım fiyatları (3+3+1, yatak odası, Options…). Müşteriye hızlı teklif için; takımı olmayanlarda tüm kalemler." }
+];
+const PDF_PRICE_STYLE_DEFAULT = { imageW: 150, rowMin: 12.4, cardMin: 112, maxPerPage: 7 };
+let pdfPriceStyle = PDF_PRICE_STYLE_DEFAULT;
+function pdfPriceTemplateId(v) { return PDF_PRICE_TEMPLATES.some(t => t.id === v) ? v : "liste"; }
+/* Fiyat listesi şablonuna göre satırlar: Takım Özeti yalnızca takım satırları; Liste/Kompakt'ta takımlar ayrı başlıkla en alta. */
+function pdfPriceItem(item, data, tpl) {
+    const p = normalizePrice(item.price);
+    let parts = p.parts;
+    const sets = parts.filter(x => x.highlight), mods = parts.filter(x => !x.highlight);
+    if (tpl === "ozet")
+        parts = sets.length ? sets : parts;
+    else if (data.pdf?.setsLast !== false && sets.length && mods.length)
+        parts = [...mods, { id: "sub-" + item.id, name: "TAKIM FİYATLARI", name_en: "SET PRICES", dims: "", amount: null, __sub: true }, ...sets];
+    return { ...item, price: { ...p, parts } };
+}
 /* ORTAK KATEGORİ BAŞLIĞI: fiyat listesi ve tüm katalog şablonları aynı koyu bant + vurgu çizgisini kullanır. */
 let pdfAccentCurrent = [0.62, 0.61, 0.59];
 function pdfCategoryBar(name, x, y, w, h, fs = 11.8) {
@@ -1792,7 +1816,8 @@ function pdfDimsParts(value) {
    Takım satırları (highlight) gri zemin ve kalın yazıyla vurgulanır. */
 function pdfProductBlock(data, category, item, lang, x, y, w, h, asset, id) {
     const L = PDF_LAYOUT, rows = pdfVisibleRows(item, lang), title = pdfText(lang, item.name, item.name_en, item.name) || "—";
-    const noPrice = !!data.__noPrice, showV = !noPrice && showVadeliOf(data), pw = PDF_PRICE_COL_W, dimW = noPrice ? 150 : 102, third = dimW / 3;
+    const IW = pdfPriceStyle.imageW, showDims = (data.pdf?.showDims !== false || !!data.__noPrice) && normalizePrice(item?.price).parts.some(r => !r.__sub && String(r.dims || "").trim());
+    const noPrice = !!data.__noPrice, showV = !noPrice && showVadeliOf(data), pw = PDF_PRICE_COL_W, dimW = !showDims ? 0 : noPrice ? 150 : 102, third = dimW / 3;
     let c = "";
     c += pdfRect(x, y, w, h, [1, 1, 1], [0.7, 0.7, 0.69], .5);
     const titleY = y + h - L.titleH;
@@ -1800,21 +1825,23 @@ function pdfProductBlock(data, category, item, lang, x, y, w, h, asset, id) {
     c += pdfTextOp(title, x + 8, titleY + 5.4, 10.4, { bold: true, maxWidth: w * 0.55, maxLines: 1, color: [1, 1, 1] });
     if (!item.__byModel) c += pdfTextOp(pdfText(lang, category?.name, category?.name_en, category?.name || ""), x + w - 8, titleY + 5.8, 7, { align: "right", maxWidth: w * 0.4, maxLines: 1, color: [0.72, 0.72, 0.7] });
     const bodyY = y, bodyH = h - L.titleH;
-    c += pdfRect(x + 0.5, bodyY + 0.5, L.imageW - 1, bodyH - 1, [0.953, 0.949, 0.941]);
+    c += pdfRect(x + 0.5, bodyY + 0.5, IW - 1, bodyH - 1, [0.953, 0.949, 0.941]);
     const imageBoxH = Math.min(Math.max(L.imageH, bodyH - 10), bodyH - 6), imageBoxY = bodyY + (bodyH - imageBoxH) / 2;
     if (asset)
-        c += pdfDrawImage("Im" + id, asset, x + 4, imageBoxY, L.imageW - 8, imageBoxH, true);
+        c += pdfDrawImage("Im" + id, asset, x + 4, imageBoxY, IW - 8, imageBoxH, true);
     else
-        c += pdfTextOp(lang === "EN" ? "NO IMAGE" : "GÖRSEL YOK", x + L.imageW / 2, bodyY + bodyH / 2 - 3, 8, { align: "center", bold: true, color: [0.6, 0.6, 0.6] });
-    const tx = x + L.imageW, tw = w - L.imageW, priceCols = noPrice ? 0 : (showV ? 2 : 1);
+        c += pdfTextOp(lang === "EN" ? "NO IMAGE" : "GÖRSEL YOK", x + IW / 2, bodyY + bodyH / 2 - 3, 8, { align: "center", bold: true, color: [0.6, 0.6, 0.6] });
+    const tx = x + IW, tw = w - IW, priceCols = noPrice ? 0 : (showV ? 2 : 1);
     const nameW = tw - dimW - pw * priceCols, cDim = tx + nameW, cP1 = cDim + dimW, cP2 = cP1 + pw;
     const headerY = bodyY + bodyH - L.headerH;
     c += pdfRect(tx, headerY, tw, L.headerH, [0.9, 0.898, 0.892]);
     const hc = [0.2, 0.2, 0.2], hy = headerY + 4.4;
     c += pdfTextOp(lang === "EN" ? "MODULE" : "MODÜL", tx + 6, hy, 6.8, { bold: true, color: hc });
-    c += pdfTextOp(lang === "EN" ? "W" : "G", cDim + third / 2, hy, 6.8, { align: "center", bold: true, color: hc });
-    c += pdfTextOp("D", cDim + third * 1.5, hy, 6.8, { align: "center", bold: true, color: hc });
-    c += pdfTextOp(lang === "EN" ? "H" : "Y", cDim + third * 2.5, hy, 6.8, { align: "center", bold: true, color: hc });
+    if (showDims) {
+        c += pdfTextOp(lang === "EN" ? "W" : "G", cDim + third / 2, hy, 6.8, { align: "center", bold: true, color: hc });
+        c += pdfTextOp("D", cDim + third * 1.5, hy, 6.8, { align: "center", bold: true, color: hc });
+        c += pdfTextOp(lang === "EN" ? "H" : "Y", cDim + third * 2.5, hy, 6.8, { align: "center", bold: true, color: hc });
+    }
     if (!noPrice) c += pdfTextOp((showV ? (lang === "EN" ? "CASH" : "NAKİT") : (lang === "EN" ? "NET PRICE" : "NET FİYAT")), cP1 + pw / 2, hy, 6.8, { align: "center", bold: true, color: hc });
     if (showV)
         c += pdfTextOp(lang === "EN" ? "TERM" : "VADELİ", cP2 + pw / 2, hy, 6.8, { align: "center", bold: true, color: hc });
@@ -1830,6 +1857,11 @@ function pdfProductBlock(data, category, item, lang, x, y, w, h, asset, id) {
         c += pdfLine(tx, rowBottom, tx + tw, rowBottom, [0.85, 0.85, 0.84], .3);
         const fs = Math.min(7.8, Math.max(6.2, unitH * 0.6)), cy = rowBottom + rowH / 2 - fs * 0.34, col = [0.08, 0.08, 0.08];
         const mod = pdfText(lang, part.name, part.name_en, part.name) || "—";
+        if (part.__sub) {
+            c += pdfRect(tx, rowBottom, tw, rowH, [0.8, 0.795, 0.785]);
+            c += pdfTextOp(mod, tx + 6, cy, fs - .4, { bold: true, maxWidth: tw - 12, maxLines: 1, color: [0.12, 0.12, 0.12] });
+            continue;
+        }
         if (part.__more) {
             c += pdfTextOp(mod, tx + 6, cy, fs, { bold: true, maxWidth: tw - 12, maxLines: 1, color: [0.4, 0.4, 0.4] });
             continue;
@@ -1839,9 +1871,9 @@ function pdfProductBlock(data, category, item, lang, x, y, w, h, asset, id) {
         else
             c += pdfTextOp(mod, tx + 6, cy, fs, { bold: hi, maxWidth: nameW - 10, maxLines: 1, color: col });
         const [dw, dd, dh] = pdfDimsParts(part.dims);
-        c += pdfTextOp(dw, cDim + third / 2, cy, fs - .3, { align: "center", maxWidth: third - 2, maxLines: 1, color: [0.25, 0.25, 0.25] });
-        c += pdfTextOp(dd, cDim + third * 1.5, cy, fs - .3, { align: "center", maxWidth: third - 2, maxLines: 1, color: [0.25, 0.25, 0.25] });
-        c += pdfTextOp(dh, cDim + third * 2.5, cy, fs - .3, { align: "center", maxWidth: third - 2, maxLines: 1, color: [0.25, 0.25, 0.25] });
+        if (showDims) c += pdfTextOp(dw, cDim + third / 2, cy, fs - .3, { align: "center", maxWidth: third - 2, maxLines: 1, color: [0.25, 0.25, 0.25] });
+        if (showDims) c += pdfTextOp(dd, cDim + third * 1.5, cy, fs - .3, { align: "center", maxWidth: third - 2, maxLines: 1, color: [0.25, 0.25, 0.25] });
+        if (showDims) c += pdfTextOp(dh, cDim + third * 2.5, cy, fs - .3, { align: "center", maxWidth: third - 2, maxLines: 1, color: [0.25, 0.25, 0.25] });
         if (noPrice) continue;
         const contact = part.contactOnly || part.amount === null || part.amount === undefined;
         const p1 = contact ? (lang === "EN" ? "Ask" : "Sorunuz") : pdfMoney(data, part.amount);
@@ -1849,7 +1881,7 @@ function pdfProductBlock(data, category, item, lang, x, y, w, h, asset, id) {
         if (showV && !contact)
             c += pdfTextOp(pdfMoney(data, partVadeli(data, part)), cP2 + pw - 6, cy, fs, { align: "right", bold: hi, maxWidth: pw - 8, maxLines: 1, color: col });
     }
-    c += pdfLine(cDim, bodyY, cDim, headerY + L.headerH, [0.8, 0.8, 0.79], .35);
+    if (showDims) c += pdfLine(cDim, bodyY, cDim, headerY + L.headerH, [0.8, 0.8, 0.79], .35);
     if (!noPrice) c += pdfLine(cP1, bodyY, cP1, headerY + L.headerH, [0.8, 0.8, 0.79], .35);
     if (showV)
         c += pdfLine(cP2, bodyY, cP2, headerY + L.headerH, [0.8, 0.8, 0.79], .35);
@@ -1924,7 +1956,7 @@ async function renderPdfCoverPage(data, lang, titleOverride) {
     const title = titleOverride || (lang === "EN" ? (data.pdf?.title_en || autoTitle) : (data.pdf?.title || autoTitle)).replace(/\((TL|TRY|USD|EUR)\)\s*$/i, "(" + cur + ")");
     content += pdfTextOp(title, W / 2, 150, 17, { align: "center", bold: true, maxWidth: W - 100, maxLines: 2, color: [1, 1, 1] });
     if (!titleOverride) {
-        const sub = (lang === "EN" ? "VAT excluded" : "KDV hariç") + (showVadeliOf(data) ? (lang === "EN" ? " · Cash / Term" : " · Nakit / Vadeli") : "") + (data.pdf?.priceDate ? " · " + data.pdf.priceDate : "");
+        const sub = (data.pdf?.priceTemplate === "ozet" ? (lang === "EN" ? "Set price summary · " : "Takım fiyatları özeti · ") : "") + (lang === "EN" ? "VAT excluded" : "KDV hariç") + (showVadeliOf(data) ? (lang === "EN" ? " · Cash / Term" : " · Nakit / Vadeli") : "") + (data.pdf?.priceDate ? " · " + data.pdf.priceDate : "");
         content += pdfTextOp(sub, W / 2, 128, 9, { align: "center", color: [0.62, 0.62, 0.6] });
     }
     content += pdfTextOp(data.pdf?.website || "www.asodamobilya.com", W / 2, 46, 8.5, { align: "center", color: [0.55, 0.55, 0.53] });
@@ -1949,7 +1981,9 @@ async function renderPdfCategoryCoverPage(data, lang, category, pageNo) {
     let c = pdfRect(0, 0, W, H, [0.953, 0.949, 0.941]);
     const photoH = Math.round(H * 0.63), photoY = H - photoH;
     const src = pdfImageSource(category?.coverImage);
-    const asset = src ? await pdfImageAsset(src, { max: 2000, quality: .88 }) : null;
+    const asset0 = src ? await pdfImageAsset(src, { max: 2000, quality: .88 }) : null;
+    /* Düşük çözünürlüklü fotoğraf kapakta bulanık görünür; o zaman logolu kapak kullanılır. */
+    const asset = asset0 && asset0.width >= 600 ? asset0 : null;
     const logo = await pdfLogoImageAsset(ASODA_PDF_DARK_LOGO, "#f3f2f0");
     if (asset) {
         const a = { ...asset, id: 1 };
@@ -2043,7 +2077,7 @@ async function renderPdfCatalogPage(data, lang, blocks, pageNo, preparedImages, 
 /* Akış düzeni: kategori şeridi + ürün kartları, sayfa başına en fazla 7 ürün.
    Fiyat listesi ve "Klasik" katalog aynı sayfalama kurallarını kullanır. */
 async function pdfFlowPages(data, lang, preparedImages, pages, opts = {}) {
-    const L = PDF_LAYOUT, H = L.H, TOP = L.top, BOTTOM = L.bottom, GAP = L.gap, MAX_PRODUCTS = 7;
+    const L = PDF_LAYOUT, H = L.H, TOP = L.top, BOTTOM = L.bottom, GAP = L.gap, MAX_PRODUCTS = pdfPriceStyle.maxPerPage || 7;
     const cardH = opts.cardHeight || pdfCardHeight;
     let current = [], used = TOP, productCount = 0;
     const flush = async () => {
@@ -2095,6 +2129,9 @@ async function buildPriceListPDF(rawData, lang) {
     const pdfLang = lang === "EN" ? "EN" : lang === "TR" ? "TR" : (currency === "TRY" ? "TR" : "EN");
     pdfAccentCurrent = pdfCatalogAccent(source);
     const prepared = await pdfPrepareImages(source), data = pdfByModel(prepared.data) ? { ...prepared.data, categories: pdfGroupByModel(prepared.data.categories), pdf: { ...prepared.data.pdf, useCategoryCovers: false } } : prepared.data;
+    const ptpl = pdfPriceTemplateId(data.pdf?.priceTemplate);
+    pdfPriceStyle = ptpl === "kompakt" ? { imageW: 96, rowMin: 10.2, cardMin: 70, maxPerPage: 14 } : ptpl === "ozet" ? { imageW: 120, rowMin: 13, cardMin: 82, maxPerPage: 10 } : PDF_PRICE_STYLE_DEFAULT;
+    data.categories = data.categories.map(c => ({ ...c, items: c.items.map(it => pdfPriceItem(it, data, ptpl)) }));
     const hdr = await pdfLogoImageAsset(ASODA_PDF_DARK_LOGO, "#ffffff");
     if (hdr) prepared.images.set("__hdrLogo__", hdr);
     if (data.pdf?.showActiveLogo !== false) { const a2 = await pdfLogoImageAsset(ACTIVE_LOGO_DARK, "#ffffff"); if (a2) prepared.images.set("__hdrLogo2__", a2); }
@@ -2106,6 +2143,7 @@ async function buildPriceListPDF(rawData, lang) {
     const pages = [await renderPdfCoverPage(data, pdfLang)];
     await pdfFlowPages(data, pdfLang, prepared.images, pages);
     pdfTotalPagesHint = 0;
+    pdfPriceStyle = PDF_PRICE_STYLE_DEFAULT;
     return await pdfCreateVectorDocument(pages);
 }
 /* ==================== KATALOG PDF (FİYATSIZ) ==================== */
@@ -2217,10 +2255,10 @@ function pdfRenderVitrinPage(data, lang, category, item, pageNo, assets) {
     y -= (nl - 1) * 24 + 16;
     const imgs = pdfItemImages(item), extra = imgs.slice(1).filter(src => assets.get(src)).slice(0, 4);
     const descTxt = pdfText(lang, item.desc, item.desc_en, item.desc), descH = descTxt ? pdfWrapText(descTxt, CW, 9.5, 4).length * 13.5 + 14 : 0;
-    const rowsList = pdfCatalogRows(item, lang), tableH = pdfDimsTableHeight(rowsList, 10 * 15);
+    const rowsList = pdfCatalogRows(item, lang), tableH = pdfDimsTableHeight(rowsList, 24 * 15);
     /* Ana görsel, açıklama ve ölçü tablosundan kalan alanı doldurur (boş sayfa altı kalmaz). */
     const free = (y - 48) - (extra.length ? 64 + 16 : 8) - 8 - descH - tableH - 6;
-    const imgH = Math.max(260, Math.min(500, free));
+    const imgH = Math.max(200, Math.min(500, free));
     c += pdfImageBox(reg.use(imgs[0], assets.get(imgs[0])), X, y - imgH, CW, imgH, lang);
     y -= imgH + 8;
     if (extra.length) {
@@ -2312,14 +2350,82 @@ function pdfRenderDergiPage(data, lang, category, items, startIndex, pageNo, ass
     return { content: c, images: reg.map, pageNo };
 }
 const PDF_CATALOG_TEMPLATES = [
+    { id: "akilli", name: "Akıllı (ürüne göre)", desc: "Çok parçalı takımlar (yatak odası, koltuk, Lego) tam sayfa; sehpa, ünite gibi küçük gruplar yarım sayfa, ikişer. Hiçbir satır kesilmez, takım seçenekleri yazılır." },
     { id: "klasik", name: "Klasik Liste", desc: "Fiyat listesiyle aynı düzen; fiyat yerine ölçüler ve açıklama. Sayfa başına 7 ürün." },
     { id: "vitrin", name: "Vitrin", desc: "Her ürün tek sayfada: büyük görsel, ek fotoğraflar, açıklama ve ölçü tablosu." },
     { id: "izgara", name: "Izgara", desc: "Sayfa başına 6 ürün kartı. Geniş ürün yelpazesine hızlı göz atma." },
     { id: "dergi", name: "Dergi", desc: "Sayfa başına 2 ürün, görseller sırayla solda ve sağda. Sunum havası." }
 ];
-function pdfCatalogTemplateId(v) { return PDF_CATALOG_TEMPLATES.some(t => t.id === v) ? v : "vitrin"; }
+function pdfCatalogTemplateId(v) { return PDF_CATALOG_TEMPLATES.some(t => t.id === v) ? v : "akilli"; }
+/* Takım seçenekleri (fiyatsız): "3+3+1 · 3+DSK+1 · Options 1" */
+function pdfSetNames(item, lang) { return normalizePrice(item?.price).parts.filter(p => p.highlight).map(p => pdfText(lang, p.name, p.name_en, p.name)).filter(Boolean); }
+function pdfSetNamesBlock(data, item, lang, x, yTop, w, maxLines = 4) {
+    const names = data.pdf?.showSetNames === false ? [] : pdfSetNames(item, lang);
+    /* Tek ve sade bir takım satırı ("Yatak Odası") bilgi vermez; yalnızca seçenek varsa yazılır. */
+    if (!names.length || (names.length === 1 && !/[+(0-9]/.test(names[0]))) return { content: "", height: 0 };
+    const label = lang === "EN" ? "SET OPTIONS" : "TAKIM SEÇENEKLERİ", txt = names.join("  ·  ");
+    const lines = pdfWrapText(txt, w, 7.8, maxLines).length;
+    let c = pdfTextOp(label, x, yTop - 9, 7.2, { bold: true, color: [0.35, 0.35, 0.35] });
+    c += pdfTextOp(txt, x, yTop - 21, 7.8, { maxWidth: w, maxLines, leading: 10.5, color: [0.12, 0.12, 0.12] });
+    return { content: c, height: 16 + lines * 10.5 };
+}
+function pdfSmartIsBig(item) { return pdfCatalogRows(item, "TR").length > 8; }
+/* Akıllı şablon — tam sayfa: büyük fotoğraf + tüm ölçü satırları (gerekirse iki sütun) + takım seçenekleri */
+function pdfRenderSmartFull(data, lang, category, item, pageNo, assets) {
+    const L = PDF_LAYOUT, W = L.W, H = L.H, acc = pdfCatalogAccent(data), X = 36, CW = W - 72, reg = pdfPageImages();
+    const catName = pdfText(lang, category.name, category.name_en, category.name) || "";
+    let c = pdfCatalogChrome(data, pageNo, lang, catName), y = H - 66;
+    c += pdfTextOp(catName.toLocaleUpperCase(lang === "EN" ? "en-US" : "tr-TR"), X, y, 8.5, { bold: true, color: acc, maxWidth: CW, maxLines: 1 });
+    y -= 27;
+    const name = pdfText(lang, item.name, item.name_en, item.name) || "—", nl = pdfWrapText(name, CW, 21, 2).length;
+    c += pdfTextOp(name, X, y, 21, { bold: true, maxWidth: CW, maxLines: 2, leading: 24, color: [0.07, 0.07, 0.07] });
+    y -= (nl - 1) * 24 + 16;
+    const rows = pdfCatalogRows(item, lang), twoCol = rows.length > 14, rowH = 14.5;
+    const perCol = twoCol ? Math.ceil(rows.length / 2) : rows.length, tableH = rows.length ? 16 + perCol * rowH : 0;
+    const setsPreview = pdfSetNamesBlock(data, item, lang, X, 0, CW), setsH = setsPreview.height ? setsPreview.height + 10 : 0;
+    const imgH = Math.max(220, Math.min(470, (y - 48) - tableH - setsH - 16));
+    const src = pdfItemImages(item)[0];
+    c += pdfImageBox(reg.use(src, assets.get(src)), X, y - imgH, CW, imgH, lang);
+    y -= imgH + 14;
+    if (rows.length) {
+        if (twoCol) {
+            const cw = (CW - 14) / 2;
+            c += pdfDimsTable(rows.slice(0, perCol), lang, X, y, cw, tableH + 2, acc, { rowH, fs: 8, nameRatio: .58 }).content;
+            c += pdfDimsTable(rows.slice(perCol), lang, X + cw + 14, y, cw, tableH + 2, acc, { rowH, fs: 8, nameRatio: .58 }).content;
+        } else
+            c += pdfDimsTable(rows, lang, X, y, CW, tableH + 2, acc, { rowH, fs: 8.4 }).content;
+        y -= tableH + 10;
+    }
+    c += pdfSetNamesBlock(data, item, lang, X, y, CW).content;
+    return { content: c, images: reg.map, pageNo };
+}
+/* Akıllı şablon — yarım sayfa: iki küçük grup, fotoğraf sırayla solda/sağda */
+function pdfRenderSmartHalf(data, lang, category, items, startIndex, pageNo, assets) {
+    const L = PDF_LAYOUT, W = L.W, H = L.H, acc = pdfCatalogAccent(data), X = 36, CW = W - 72, reg = pdfPageImages();
+    const catName = pdfText(lang, category.name, category.name_en, category.name) || "";
+    let c = pdfCatalogChrome(data, pageNo, lang, catName) + pdfCatalogSectionHeader(data, lang, category, false, X, CW);
+    const gap = 22, areaTop = H - 100, areaBottom = 46, slotH = (areaTop - areaBottom - gap) / 2, imgW = Math.round(CW * 0.54), textW = CW - imgW - 20;
+    items.forEach((item, i) => {
+        const top = areaTop - i * (slotH + gap), y = top - slotH, imageLeft = (startIndex + i) % 2 === 0;
+        const ix = imageLeft ? X : X + textW + 20, tx = imageLeft ? X + imgW + 20 : X, src = pdfItemImages(item)[0];
+        c += pdfImageBox(reg.use(src, assets.get(src)), ix, y, imgW, slotH, lang);
+        let ty = top - 20;
+        const name = pdfText(lang, item.name, item.name_en, item.name) || "—", nl = pdfWrapText(name, textW, 14, 3).length;
+        c += pdfTextOp(name, tx, ty, 14, { bold: true, maxWidth: textW, maxLines: 3, leading: 17, color: [0.07, 0.07, 0.07] });
+        ty -= (nl - 1) * 17 + 12;
+        c += pdfRect(tx, ty, 24, 1.8, [0.1, 0.1, 0.1]);
+        ty -= 10;
+        const rows = pdfCatalogRows(item, lang), t = pdfDimsTable(rows, lang, tx, ty, textW, ty - (y + 60), acc, { rowH: 14, fs: 7.8, nameRatio: .55 });
+        c += t.content;
+        ty -= t.height + 10;
+        c += pdfSetNamesBlock(data, item, lang, tx, ty, textW, Math.max(1, Math.floor((ty - y - 20) / 10.5))).content;
+        if (i === 0 && items.length > 1)
+            c += pdfLine(X, y - gap / 2, X + CW, y - gap / 2, [0.86, 0.86, 0.86], .5);
+    });
+    return { content: c, images: reg.map, pageNo };
+}
 async function pdfPrepareCatalogAssets(data, tpl) {
-    const max = { klasik: 1000, vitrin: 1600, izgara: 900, dergi: 1300 }[tpl] || 1000;
+    const max = { akilli: 1400, klasik: 1000, vitrin: 1600, izgara: 900, dergi: 1300 }[tpl] || 1000;
     const want = [];
     for (const c of data.categories || [])
         for (const it of c.items || []) {
@@ -2342,6 +2448,7 @@ async function buildCatalogPDF(rawData, lang, templateId) {
     pdfAccentCurrent = pdfCatalogAccent(normalizeData(rawData));
     const source = normalizeData(rawData), L = lang === "EN" ? "EN" : "TR";
     const tpl = pdfCatalogTemplateId(templateId || source.pdf?.catalogTemplate);
+    pdfPriceStyle = PDF_PRICE_STYLE_DEFAULT;
     const real = pdfRealCategories(source), data = { ...source, categories: pdfByModel(source) ? pdfGroupByModel(real) : real };
     const assets = await pdfPrepareCatalogAssets(data, tpl);
     const title = L === "EN" ? "PRODUCT CATALOG" : (String(source.pdf?.catalogTitle || "").trim() || "ÜRÜN KATALOĞU");
@@ -2358,6 +2465,17 @@ async function buildCatalogPDF(rawData, lang, templateId) {
                 continue;
             if (data.pdf?.useCategoryCovers)
                 pages.push(await renderPdfCategoryCoverPage(data, L, category.__model ? { ...category, coverImage: category.modelCover } : category, pages.length + 1));
+            if (tpl === "akilli") {
+                const smalls = [];
+                let half = 0;
+                const flushSmall = () => { while (smalls.length) { const chunk = smalls.splice(0, 2); pages.push(pdfRenderSmartHalf(data, L, category, chunk, half, pages.length + 1, assets)); half += chunk.length; } };
+                for (const item of items) {
+                    if (pdfSmartIsBig(item)) { flushSmall(); pages.push(pdfRenderSmartFull(data, L, category, item, pages.length + 1, assets)); }
+                    else smalls.push(item);
+                }
+                flushSmall();
+                continue;
+            }
             if (tpl === "vitrin") {
                 for (const item of items)
                     pages.push(pdfRenderVitrinPage(data, L, category, item, pages.length + 1, assets));
@@ -2676,6 +2794,20 @@ function PdfPreviewModal({ preview, language, onClose, onDownload }) {
 function CatalogTemplateThumb({ id, accent }) {
     const a = accent || "#C9A227", img = "#3a3a3a", ln = "#5a5a5a", bg = "#f4f2ee";
     const page = c => React.createElement("svg", { viewBox: "0 0 60 80", className: "w-full h-auto rounded-md", "aria-hidden": "true", style: { background: bg, maxHeight: 96 } }, c);
+    if (id === "akilli")
+        return page(React.createElement(React.Fragment, null,
+            React.createElement("rect", { x: "6", y: "6", width: "22", height: "3", fill: "#222" }),
+            React.createElement("rect", { x: "6", y: "11", width: "48", height: "20", fill: img }),
+            React.createElement("rect", { x: "6", y: "33", width: "23", height: "2.4", fill: "#111" }),
+            React.createElement("rect", { x: "31", y: "33", width: "23", height: "2.4", fill: "#111" }),
+            [0, 1, 2].map(i => React.createElement("rect", { key: i, x: "6", y: 37 + i * 3, width: "48", height: "1.3", fill: ln })),
+            React.createElement("rect", { x: "6", y: "50", width: "48", height: ".6", fill: "#bbb" }),
+            React.createElement("rect", { x: "6", y: "53", width: "22", height: "11", fill: img }),
+            React.createElement("rect", { x: "31", y: "54", width: "18", height: "2", fill: "#222" }),
+            React.createElement("rect", { x: "31", y: "58", width: "23", height: "1.3", fill: ln }),
+            React.createElement("rect", { x: "32", y: "66", width: "22", height: "11", fill: img }),
+            React.createElement("rect", { x: "6", y: "67", width: "18", height: "2", fill: "#222" }),
+            React.createElement("rect", { x: "6", y: "71", width: "23", height: "1.3", fill: ln })));
     if (id === "klasik")
         return page(React.createElement(React.Fragment, null, [0, 1, 2, 3].map(i => React.createElement("g", { key: i },
             React.createElement("rect", { x: "5", y: 6 + i * 18, width: "50", height: "16", fill: "#fff", stroke: "#999", strokeWidth: ".5" }),
@@ -4471,6 +4603,12 @@ function App() {
                             React.createElement("label", { className: "block mb-4" },
                                 React.createElement(AdminLabel, null, "Katalog Kapak Ba\u015Fl\u0131\u011F\u0131"),
                                 React.createElement("input", { className: "admin-input", value: data.pdf?.catalogTitle ?? "", onChange: e => setPath(["pdf", "catalogTitle"], e.target.value), placeholder: "\u00DCR\u00DCN KATALO\u011EU" })),
+                            React.createElement("label", { className: "flex items-center gap-2 text-xs text-neutral-300 mb-2" },
+                                React.createElement("input", { type: "checkbox", checked: data.pdf?.showSetNames !== false, onChange: e => setPath(["pdf", "showSetNames"], e.target.checked) }),
+                                "Takım seçeneklerini katalogda yaz (3+3+1, Options… — fiyatsız)"),
+                            React.createElement("label", { className: "flex items-center gap-2 text-xs text-neutral-300 mb-4" },
+                                React.createElement("input", { type: "checkbox", checked: !!data.pdf?.useCategoryCovers, onChange: e => setPath(["pdf", "useCategoryCovers"], e.target.checked) }),
+                                "Her model / kategori için fotoğraflı açılış sayfası"),
                             React.createElement("div", { className: "grid grid-cols-2 gap-2" },
                                 React.createElement("button", { type: "button", onClick: () => createPDF(false, "catalog"), disabled: !!pdfBusy, className: "min-h-[44px] py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50", style: { background: adminAccent, color: adminInk } },
                                     React.createElement(Icon, { type: "download", size: 14 }),
@@ -4481,6 +4619,16 @@ function App() {
                         React.createElement("div", { className: "rounded-2xl border border-neutral-800 bg-neutral-900 p-4" },
                             React.createElement("div", { className: "text-[10px] uppercase tracking-widest font-bold text-amber-500 mb-2" }, "PDF Fiyat Listesi"),
                             React.createElement("div", { className: "text-xs text-neutral-400 mb-4" }, "Ürün, fotoğraf, ölçü, fiyat, dil ve para birimi sitedeki gibi PDF'ye aktarılır. Sıralama (model / kategori) aşağıdaki ayardan seçilir. Vadeli sütunu yalnızca TL'de basılır."),
+                            React.createElement(AdminLabel, null, "Fiyat Listesi Şablonu"),
+                            React.createElement("div", { className: "grid grid-cols-3 gap-2 mb-3" }, PDF_PRICE_TEMPLATES.map(tp => { const active = pdfPriceTemplateId(data.pdf?.priceTemplate) === tp.id; return React.createElement("button", { key: tp.id, type: "button", role: "radio", "aria-checked": active, onClick: () => setPath(["pdf", "priceTemplate"], tp.id), className: "text-left rounded-xl p-2.5 border", style: { background: active ? "#262626" : "#141414", borderColor: active ? adminAccent : "#333" } },
+                                React.createElement("div", { className: "text-[12px] font-bold mb-1" }, (active ? "✓ " : "") + tp.name),
+                                React.createElement("div", { className: "text-[10px] text-neutral-400 leading-snug" }, tp.desc)); })),
+                            React.createElement("label", { className: "flex items-center gap-2 text-xs text-neutral-300 mb-2" },
+                                React.createElement("input", { type: "checkbox", checked: data.pdf?.setsLast !== false, onChange: e => setPath(["pdf", "setsLast"], e.target.checked) }),
+                                "Takım satırlarını tablonun altında \"TAKIM FİYATLARI\" başlığıyla topla"),
+                            React.createElement("label", { className: "flex items-center gap-2 text-xs text-neutral-300 mb-4" },
+                                React.createElement("input", { type: "checkbox", checked: data.pdf?.showDims !== false, onChange: e => setPath(["pdf", "showDims"], e.target.checked) }),
+                                "Ölçü sütunlarını (G / D / Y) göster"),
                             React.createElement("div", { className: "grid grid-cols-2 gap-2 mb-4" },
                                 React.createElement("button", { type: "button", onClick: () => createPDF(false, "price"), disabled: !!pdfBusy, className: "min-h-[44px] py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50", style: { background: adminAccent, color: adminInk } },
                                     React.createElement(Icon, { type: "download", size: 14 }),
@@ -4525,9 +4673,6 @@ function App() {
                             React.createElement("label", { className: "flex items-center gap-2 text-xs text-neutral-300 mb-5" },
                                 React.createElement("input", { type: "checkbox", checked: data.pdf?.showPageNumbers !== false, onChange: e => setPath(["pdf", "showPageNumbers"], e.target.checked) }),
                                 " Sayfa numaras\u0131 g\u00F6ster"),
-                            React.createElement("label", { className: "flex items-center gap-2 text-xs text-neutral-300 mb-5" },
-                                React.createElement("input", { type: "checkbox", checked: !!data.pdf?.useCategoryCovers, onChange: e => setPath(["pdf", "useCategoryCovers"], e.target.checked) }),
-                                " Her kategorinin ba\u015F\u0131na kapak sayfas\u0131 ekle"),
                             React.createElement("div", { className: "border-t border-neutral-800 pt-4 mb-5" },
                                 React.createElement("div", { className: "text-[10px] uppercase tracking-widest font-bold text-amber-500 mb-2" }, "PDF Kapak Logosu"),
                                 React.createElement("div", { className: "text-[10px] text-neutral-500 mb-3" }, "Bu logo PDF kapa\u011F\u0131nda ve t\u00FCm kategori kapaklar\u0131nda kullan\u0131l\u0131r. Web sitesindeki logo ve \u00FCr\u00FCn g\u00F6rsellerinden ba\u011F\u0131ms\u0131zd\u0131r."),
