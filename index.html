@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-SicjYGennNUHDGaKWkzljZKeynFUzqJOM42SPJkHjh4=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-nsSx2cxEH987eIzrIEeblUdH2BWAIeJ+hLCgskdSc7s=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3041,6 +3041,46 @@ function clearPinLock() {
     }
     catch (_) { }
 }
+/* Sayı giriş alanı (kur, oran, fiyat). type="number" Türkçe klavyede virgülü kabul etmiyor, alan silinemiyordu
+   ve yazılan rakam eski değerin sonuna ekleniyordu (40 → 40423). Bu alan yazarken serbest metin tutar, virgül ve
+   noktayı anlar; alandan çıkınca / Enter'da kontrol edip kaydeder, geçersiz değerde eski değere döner (Esc: vazgeç). */
+function parseDecimalInput(v) {
+    let s = String(v ?? "").trim().replace(/\s/g, "").replace(/[₺$€%]/g, "");
+    if (!s) return null;
+    const c = s.lastIndexOf(","), d = s.lastIndexOf(".");
+    if (c > -1 && d > -1) s = c > d ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+    else if (c > -1) s = s.replace(",", ".");
+    return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
+}
+function NumField({ value, onCommit, mode = "decimal", min = 0, max = 1e9, allowEmpty = false, allowZero = true, suffix, ariaLabel, placeholder, disabled, style, example }) {
+    const fmt = n => (n === null || n === undefined || n === "" || !Number.isFinite(Number(n))) ? "" : Number(n).toLocaleString("tr-TR", { maximumFractionDigits: mode === "price" ? 2 : 4, useGrouping: mode === "price" });
+    const parse = raw => mode === "price" ? (/^[\d\s.,₺]+$/.test(raw) ? priceNumberRaw(raw) : NaN) : parseDecimalInput(raw);
+    const valid = n => n !== null && Number.isFinite(n) && n >= min && n <= max && (allowZero || n !== 0);
+    const [text, setText] = useState(fmt(value)), [err, setErr] = useState("");
+    const focused = useRef(false), cancel = useRef(false);
+    useEffect(() => { if (!focused.current) setText(fmt(value)); }, [value]);
+    /* Yazarken kaydedilmez (yarım yazılmış "1.2" gibi değerler kuru bozmasın); alandan çıkınca veya Enter ile kaydedilir. */
+    const onChange = e => { setText(e.target.value); if (err) setErr(""); };
+    const onBlur = () => {
+        focused.current = false;
+        if (cancel.current) { cancel.current = false; setErr(""); setText(fmt(value)); return; }
+        const t = String(text).trim();
+        if (!t) { if (allowEmpty) { setErr(""); setText(""); if (value !== null && value !== undefined && value !== "") onCommit(null); return; } setErr("Boş bırakılamaz"); setText(fmt(value)); return; }
+        const n = parse(t);
+        if (!valid(n)) { setErr("Geçersiz değer" + (example ? " — örnek: " + example : "")); setText(fmt(value)); return; }
+        const r = Math.round(n * 10000) / 10000;
+        setErr(""); setText(fmt(r));
+        if (r !== Number(value) || value === null || value === undefined || value === "") onCommit(r);
+    };
+    return React.createElement("div", { className: "min-w-0" },
+        React.createElement("div", { className: "relative" },
+            React.createElement("input", { type: "text", inputMode: "decimal", autoComplete: "off", spellCheck: false, "aria-label": ariaLabel, "aria-invalid": !!err, className: "admin-input", value: text, placeholder, disabled,
+                style: { ...(style || {}), ...(suffix ? { paddingRight: 34 } : {}), ...(err ? { borderColor: "#f87171" } : {}) },
+                onFocus: e => { focused.current = true; e.target.select(); }, onChange, onBlur,
+                onKeyDown: e => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } else if (e.key === "Escape") { e.stopPropagation(); cancel.current = true; e.currentTarget.blur(); } } }),
+            suffix && React.createElement("span", { className: "absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400 pointer-events-none" }, suffix)),
+        err && React.createElement("div", { role: "alert", className: "text-[11px] text-red-400 mt-1" }, err));
+}
 function App() {
     const [data, setData] = useState(null), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [saved, setSaved] = useState(false), [toast, setToast] = useState(""), [activeCat, setActiveCat] = useState(null), [openCategories, setOpenCategories] = useState({}), [currencyMenuOpen, setCurrencyMenuOpen] = useState(false), [language, setLanguage] = useState(() => lsGet(LANG_KEY) === "EN" ? "EN" : "TR"), [adminSection, setAdminSection] = useState("genel"), [search, setSearch] = useState(""), [searchOpen, setSearchOpen] = useState(false), [viewCurrency, setViewCurrency] = useState(() => { try {
         const v = localStorage.getItem(VIEW_CURRENCY_KEY);
@@ -4464,16 +4504,14 @@ function App() {
                                 c.name))),
                             React.createElement("label", { className: "block mb-3" },
                                 React.createElement(AdminLabel, null, "1 USD = Ka\u00E7 TL?"),
-                                React.createElement("input", { type: "number", step: "0.01", className: "admin-input", value: data.currency.usdRate, onChange: e => { const n = Number(e.target.value); if (Number.isFinite(n) && n >= 0 && n <= 100000)
-                                        setPath(["currency", "usdRate"], n); } })),
+                                React.createElement(NumField, { ariaLabel: "1 USD kaç TL", value: data.currency.usdRate, suffix: "₺", min: 0.0001, max: 1000, allowZero: false, example: "42,35", onCommit: n => setPath(["currency", "usdRate"], n) })),
                             React.createElement("label", { className: "block" },
                                 React.createElement(AdminLabel, null, "1 EUR = Ka\u00E7 TL?"),
-                                React.createElement("input", { type: "number", step: "0.01", className: "admin-input", value: data.currency.eurRate, onChange: e => { const n = Number(e.target.value); if (Number.isFinite(n) && n >= 0 && n <= 100000)
-                                        setPath(["currency", "eurRate"], n); } })),
+                                React.createElement(NumField, { ariaLabel: "1 EUR kaç TL", value: data.currency.eurRate, suffix: "₺", min: 0.0001, max: 1000, allowZero: false, example: "48,90", onCommit: n => setPath(["currency", "eurRate"], n) })),
+                            React.createElement("div", { className: "text-[11px] text-neutral-400 mt-2" }, "Örnek: 28.108 ₺ = $" + (data.currency.usdRate > 0 ? Math.floor(28108 / data.currency.usdRate).toLocaleString("en-US") : "—") + " · €" + (data.currency.eurRate > 0 ? Math.floor(28108 / data.currency.eurRate).toLocaleString("en-US") : "—") + "  (virgül veya nokta kullanabilirsiniz: 42,35)"),
                             React.createElement("label", { className: "block mt-4" },
                                 React.createElement(AdminLabel, null, "Vadeli farkı (%)"),
-                                React.createElement("input", { type: "number", step: "0.5", min: "0", className: "admin-input", value: data.pricing?.vadeliRate ?? 10, onChange: e => { const n = Number(e.target.value); if (Number.isFinite(n) && n >= 0 && n <= 200)
-                                        setPath(["pricing", "vadeliRate"], n); } })),
+                                React.createElement(NumField, { ariaLabel: "Vadeli farkı yüzde", value: data.pricing?.vadeliRate ?? 10, suffix: "%", min: 0, max: 200, example: "10", onCommit: n => setPath(["pricing", "vadeliRate"], n) })),
                             React.createElement("label", { className: "flex items-center gap-2 text-xs text-neutral-300 mt-3" },
                                 React.createElement("input", { type: "checkbox", checked: data.pricing?.showVadeli !== false, onChange: e => setPath(["pricing", "showVadeli"], e.target.checked) }),
                                 "Vadeli fiyatı sitede ve fiyat listesinde göster"))),
@@ -4550,7 +4588,7 @@ function App() {
                                                     React.createElement("input", { type: "checkbox", checked: normalizePrice(item.price).autoCollect !== false, onChange: e => setPriceAutoCollect(category.id, item.id, e.target.checked) })),
                                                 normalizePrice(item.price).autoCollect === false ? React.createElement("label", { className: "block mt-2" },
                                                     React.createElement(AdminLabel, null, "Manuel Toplam Fiyat"),
-                                                    React.createElement("input", { type: "text", inputMode: "decimal", value: normalizePrice(item.price).manualTotal ?? "", onChange: e => updateItem(category.id, item.id, "price", { ...normalizePrice(item.price), manualTotal: priceNumber(e.target.value), manualTotalVadeli: null }), placeholder: "\u00D6rn. 18.500", className: "admin-input", style: { padding: "8px", fontSize: "11px" } })) : React.createElement("div", { className: "mt-2 text-[10px] text-neutral-400" },
+                                                    React.createElement(NumField, { mode: "price", ariaLabel: "Manuel toplam fiyat (TL)", value: normalizePrice(item.price).manualTotal, allowEmpty: true, placeholder: "Örn. 18.500", max: 1e10, example: "196.176", style: { padding: "8px", fontSize: "11px" }, onCommit: n => updateItem(category.id, item.id, "price", { ...normalizePrice(item.price), manualTotal: n, manualTotalVadeli: null }) })) : React.createElement("div", { className: "mt-2 text-[10px] text-neutral-400" },
                                                     "G\u00FCncel toplam: ",
                                                     React.createElement("strong", { style: { color: adminAccent } }, priceTotal(item.price) !== null ? formatAmount(priceTotal(item.price)) : "—"))),
                                             normalizePrice(item.price).parts.length === 0 && React.createElement("div", { className: "text-[10px] text-neutral-500 py-2 text-center" }, "Hen\u00FCz fiyat kalemi eklenmedi."),
@@ -4559,7 +4597,7 @@ function App() {
                                                     React.createElement("input", { "aria-label": "Par\u00E7a ad\u0131", value: part.name, onChange: e => updatePricePart(category.id, item.id, part.id, "name", e.target.value), placeholder: "Par\u00E7a ad\u0131", className: "admin-input", style: { padding: "8px", fontSize: "11px" } })),
                                                 React.createElement("div", { className: "grid grid-cols-[1fr_105px_auto] gap-2 items-center" },
                                                     React.createElement("input", { "aria-label": "Par\u00E7a \u00F6l\u00E7\u00FCs\u00FC", value: part.dims || "", onChange: e => { const v = e.target.value; updatePricePart(category.id, item.id, part.id, "dims", v); updatePricePart(category.id, item.id, part.id, "dims_en", v); }, placeholder: "\u00D6l\u00E7\u00FC", className: "admin-input", style: { padding: "8px", fontSize: "11px" } }),
-                                                    React.createElement("input", { type: "number", min: "0", step: "any", inputMode: "decimal", "aria-label": "Par\u00E7a fiyat\u0131 (TL)", value: part.amount ?? "", disabled: part.contactOnly, onChange: e => updatePricePart(category.id, item.id, part.id, "amount", e.target.value === "" ? null : priceNumber(e.target.value)), placeholder: "\u20BA", className: "admin-input", style: { padding: "8px", fontSize: "11px", opacity: part.contactOnly ? .4 : 1 } }),
+                                                    React.createElement(NumField, { mode: "price", ariaLabel: "Parça fiyatı (TL)", value: part.amount, allowEmpty: true, disabled: part.contactOnly, placeholder: "₺", max: 1e9, example: "28.108", style: { padding: "8px", fontSize: "11px", opacity: part.contactOnly ? .4 : 1 }, onCommit: n => updatePricePart(category.id, item.id, part.id, "amount", n) }),
                                                     React.createElement("button", { type: "button", "aria-label": "Fiyat kalemini sil", onClick: () => deletePricePart(category.id, item.id, part.id), className: "w-9 h-9 flex items-center justify-center bg-red-950 text-red-400 rounded-lg" },
                                                         React.createElement(Icon, { type: "trash", size: 13 }))),
                                                 React.createElement("label", { className: "flex items-center gap-2 mt-2 text-[10px] text-neutral-400" },
@@ -4570,7 +4608,7 @@ function App() {
                                                     "Takım satırı (kalın göster)"),
                                                 data.pricing?.showVadeli !== false && React.createElement("label", { className: "flex items-center gap-2 mt-1 text-[10px] text-neutral-400" },
                                                     "Vadeli ₺",
-                                                    React.createElement("input", { type: "number", min: "0", step: "any", inputMode: "decimal", value: part.vadeli ?? "", disabled: part.contactOnly, placeholder: String(vadeliAmount(data, part.amount) ?? "otomatik"), onChange: e => updatePricePart(category.id, item.id, part.id, "vadeli", e.target.value === "" ? null : priceNumber(e.target.value)), className: "admin-input", style: { padding: "6px", fontSize: "11px", maxWidth: 130 } }),
+                                                    React.createElement(NumField, { mode: "price", ariaLabel: "Parça vadeli fiyatı (TL)", value: part.vadeli, allowEmpty: true, disabled: part.contactOnly, placeholder: String(vadeliAmount(data, part.amount) ?? "otomatik"), max: 1e9, example: "30.919", style: { padding: "6px", fontSize: "11px", maxWidth: 130 }, onCommit: n => updatePricePart(category.id, item.id, part.id, "vadeli", n) }),
                                                     "(boş = otomatik)"),
                                                 null))),
                                         React.createElement("div", { className: "flex justify-end gap-1" }, (() => {
