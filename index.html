@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-PAqlJCZdEQbM6MRmAG0to58W1XBJwUU5Xo0bnJqxdSc=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-+IyjOx7Knl5m2UQO61AGHr1pGLSrA2q3Um69UQAW3rs=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5428,8 +5428,8 @@ function App() {
     const catCollections = [...new Set((activeCategory?.items || []).map(i => i.collection).filter(Boolean))];
     const collInfo = name => (data.collections || []).find(c => c.name === name);
     const collHead = (item, index) => {
-        if (q || !item.collection || (index > 0 && visibleProducts[index - 1].collection === item.collection))
-            return null;
+        /* Sitede kategori bazlı liste: koleksiyon (model) başlıkları yalnızca PDF'lerde kullanılır. */
+        return null;
         const info = collInfo(item.collection), n = visibleProducts.filter(x => x.collection === item.collection).length;
         return React.createElement("div", { key: "ch-" + item.collection, className: "col-span-full flex items-baseline gap-3 flex-wrap pt-3 pb-1", style: { borderBottom: "1px solid " + theme.text + "18" } },
             React.createElement("h3", { className: "text-lg font-bold tracking-wide", style: { color: theme.accent } }, item.collection),
@@ -6164,7 +6164,7 @@ function App() {
                 }, onMouseDown: e => { const el = e.currentTarget; el.dataset.dragging = "1"; el.dataset.dragStartX = String(e.clientX); el.dataset.dragStartScroll = String(el.scrollLeft); }, onMouseMove: e => { const el = e.currentTarget; if (el.dataset.dragging === "1") {
                     el.scrollLeft = Number(el.dataset.dragStartScroll) - (e.clientX - Number(el.dataset.dragStartX));
                 } }, onMouseUp: e => { e.currentTarget.dataset.dragging = "0"; }, onMouseLeave: e => { e.currentTarget.dataset.dragging = "0"; } }, publicCategories.map((category, index) => { const active = category.id === activeCat; return React.createElement("button", { type: "button", key: category.id, "aria-pressed": active, onClick: e => goToCategory(category.id, e.currentTarget), className: "category-chip " + (active ? "active" : ""), style: { background: active ? `linear-gradient(135deg,${theme.accent},${theme.accent}dd)` : `${theme.accent}14`, color: active ? ink : theme.text, borderColor: active ? theme.accent + "70" : theme.text + "12", opacity: active ? 1 : .78, boxShadow: active ? `0 6px 18px ${theme.accent}30` : "none", animation: `categoryEnter .4s cubic-bezier(.22,1,.36,1) ${index * 45}ms both` } }, categoryDisplay(category)); }))),
-        !q && catCollections.length > 1 && React.createElement("div", { className: "max-w-5xl mx-auto px-4 pt-1 pb-1 flex gap-2 overflow-x-auto coll-chips", role: "group", "aria-label": language === "EN" ? "Collections" : "Koleksiyonlar" },
+        false && React.createElement("div", { className: "max-w-5xl mx-auto px-4 pt-1 pb-1 flex gap-2 overflow-x-auto coll-chips", role: "group", "aria-label": language === "EN" ? "Collections" : "Koleksiyonlar" },
             ["", ...catCollections].map(name => { const on = (catCollections.includes(collFilter) ? collFilter : "") === name; return React.createElement("button", { key: name || "all", type: "button", "aria-pressed": on, onClick: () => setCollFilter(name), className: "shrink-0 px-3.5 min-h-[36px] rounded-full text-xs font-semibold whitespace-nowrap", style: { background: on ? theme.accent : theme.card, color: on ? ink : theme.text, border: "1px solid " + (on ? theme.accent : theme.text + "22") } }, name || (language === "EN" ? "All collections" : "Tüm koleksiyonlar")); })),
         React.createElement("div", { ref: productsTopRef, "aria-hidden": "true", style: { height: 0 } }),
         React.createElement("main", { key: q ? `search-${q}` : activeCat, className: "product-grid px-4 pt-4 pb-28 max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-3" },
@@ -6190,7 +6190,7 @@ function App() {
                     g.length > 1 && React.createElement("div", { className: "gallery-dots" }, g.slice(0, 7).map((_, i) => React.createElement("span", { key: i, className: 'gallery-dot ' + (i === idx ? 'active' : '') })))); })()),
                 React.createElement("div", { className: "p-3 flex flex-col" },
                     q && React.createElement("div", { className: "text-[9px] uppercase tracking-wider font-bold mb-1 truncate", style: { color: theme.accent } }, getText(language, item.categoryName, item.categoryName_en, item.categoryName)),
-                    item.collection && !q && React.createElement("div", { className: "text-[9px] uppercase tracking-[.18em] font-bold mb-1 truncate", style: { color: theme.accent } }, item.collection),
+                    false && React.createElement("div", { className: "text-[9px] uppercase tracking-[.18em] font-bold mb-1 truncate", style: { color: theme.accent } }, item.collection),
                     React.createElement("div", { className: "font-semibold text-sm leading-tight line-clamp-3" }, productDisplay(item)),
                     productDims(item) && React.createElement("div", { className: "text-[11px] opacity-70 mt-1 tabular-nums" }, productDims(item)),
                     productDesc(item) && React.createElement("div", { className: "text-xs opacity-65 mt-1 leading-snug line-clamp-2" }, productDesc(item)),
@@ -6221,7 +6221,7 @@ function App() {
                         React.createElement(Icon, { type: "image", size: 40 })); })()),
                     (() => { const g = Array.isArray(selectedProduct.images) && selectedProduct.images.length ? selectedProduct.images : (selectedProduct.image ? [selectedProduct.image] : []); return g.length > 1 && React.createElement("div", { className: "detail-gallery-dots" }, g.map((_, i) => React.createElement("span", { key: i, className: 'detail-gallery-dot ' + (i === detailGalleryIndex ? 'active' : '') }))); })()),
                 React.createElement("div", { className: "p-5" },
-                    React.createElement("div", { className: "text-[11px] uppercase tracking-widest font-bold mb-2", style: { color: theme.accent } }, (selectedProduct.collection ? selectedProduct.collection + " · " : "") + (productCategoryName(selectedProduct) || t(language, "premium"))),
+                    React.createElement("div", { className: "text-[11px] uppercase tracking-widest font-bold mb-2", style: { color: theme.accent } }, (productCategoryName(selectedProduct) || t(language, "premium"))),
                     React.createElement("h2", { className: "text-2xl font-bold" }, productDisplay(selectedProduct)),
                     productDims(selectedProduct) && React.createElement("div", { className: "text-sm mt-2" },
                         React.createElement("span", { className: "text-[11px] uppercase tracking-wide opacity-80" },
