@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-9w08XS5bAfNMYbUp2HbddGRi5TZXwuTvtxwM8cRKskk=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-CTdN+19fE/8fUXWqIKdUptTgDxUtCWdFSCbJL+yflAo=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -466,6 +466,7 @@ body.adm-dragging{cursor:grabbing;user-select:none}
 </head>
 <body>
 <div id="root"></div>
+<noscript><p style="font:16px sans-serif;padding:24px;color:#ddd">Bu katalog JavaScript gerektirir. Lütfen tarayıcınızda JavaScript'i etkinleştirin. · Tel: +90 224 718 60 01</p></noscript>
 
 <script>
 const { useState, useEffect, useRef, useDeferredValue } = React;
@@ -1118,7 +1119,7 @@ function CachedImage({ src, ...props }) {
     const raw = safeAssetSource(src);
     /* Beyaz zeminli ürün fotoğrafları ("...w.webp") kırpılmaz; ürün tamamen görünür. */
     const white = typeof raw === "string" && /w\.webp$/i.test(raw);
-    return React.createElement("img", { ...props, className: (props.className || "") + (white ? " img-white" : ""), src: raw || undefined, referrerPolicy: "no-referrer" });
+    return React.createElement("img", { ...props, className: (props.className || "") + (white ? " img-white" : ""), src: raw || undefined, referrerPolicy: "no-referrer", decoding: props.decoding || "async", onError: (e) => { try { e.currentTarget.style.visibility = "hidden"; e.currentTarget.alt = ""; } catch (_) { } if (props.onError) props.onError(e); } });
 }
 function isDataImageSource(src) {
     return typeof src === 'string' && /^data:image\//i.test(src);
