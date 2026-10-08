@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Ns0xuWC2vOv/jGwRo20H5KdPMn3h317UYsj0xoFsVec=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-KVVFbcm2tdDcWFW3WW1X0+9e2lz3GYJSy1N/xfo5qZw=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4745,7 +4745,7 @@ function App() {
         if (!id)
             showToast("Kategori adı boş olamaz.");
         else
-            showToast("Kategori eklendi. Kalıcı olması için \u201CKaydet ve yayınla\u201D.");
+            showToast("Kategori eklendi. Kalıcı olması için \u201CKaydet\u201D.");
         return id;
     }
     async function deleteCategory(id) {
@@ -4753,7 +4753,7 @@ function App() {
         if (!cat)
             return;
         const n = (cat.items || []).length;
-        if (!(await uiConfirm(n ? "İçindeki " + n + " ürün de silinecek. Bu işlem \u201CKaydet ve yayınla\u201D sonrası geri alınamaz." : "Bu kategori kalıcı olarak kaldırılacak.", { title: "\u201C" + (cat.name || "Kategori") + "\u201D silinsin mi?", danger: true, okText: "Kategoriyi Sil" })))
+        if (!(await uiConfirm(n ? "İçindeki " + n + " ürün de silinecek. Bu işlem \u201CKaydet\u201D sonrası geri alınamaz." : "Bu kategori kalıcı olarak kaldırılacak.", { title: "\u201C" + (cat.name || "Kategori") + "\u201D silinsin mi?", danger: true, okText: "Kategoriyi Sil" })))
             return;
         try {
             updateData(x => { x.categories = (x.categories || []).filter(c => c.id !== id); });
@@ -5012,7 +5012,7 @@ function App() {
     }
     /* Kaydedilmemiş değişiklik varken panel dışına / X'e dokunulursa önce sorulur (önceden sessizce siliniyordu). */
     async function requestCloseAdminPanel() {
-        if (hasUnsavedPanelChanges() && !(await uiConfirm("Kaydetmeden kapatırsanız yaptığınız değişiklikler kaybolur. Kaydetmek için Vazgeç'e, sonra \u201CKaydet ve yayınla\u201Dya basın.", { title: "Kaydedilmemiş değişiklikler var", icon: "alert", okText: "Kaydetmeden Kapat", danger: true })))
+        if (hasUnsavedPanelChanges() && !(await uiConfirm("Kaydetmeden kapatırsanız yaptığınız değişiklikler kaybolur. Kaydetmek için Vazgeç'e, sonra \u201CKaydet\u201Dya basın.", { title: "Kaydedilmemiş değişiklikler var", icon: "alert", okText: "Kaydetmeden Kapat", danger: true })))
             return false;
         closeAdminPanel(true);
         return true;
@@ -5571,7 +5571,7 @@ function App() {
             return;
         }
         const desc = admBulk.mode === "pct" ? `%${v > 0 ? "+" : ""}${v}` : `${v > 0 ? "+" : ""}${Math.floor(v).toLocaleString("tr-TR")} ₺`;
-        if (!(await uiConfirm(`${keys.length} ürünün tüm fiyatlarına ${desc} uygulanacak. \u201CKaydet ve yayınla\u201Dya basana kadar paneli kaydetmeden kapatarak geri alabilirsiniz.`, { title: "Toplu fiyat güncellensin mi?", icon: "alert", okText: "Uygula" })))
+        if (!(await uiConfirm(`${keys.length} ürünün tüm fiyatlarına ${desc} uygulanacak. \u201CKaydet\u201Dya basana kadar paneli kaydetmeden kapatarak geri alabilirsiniz.`, { title: "Toplu fiyat güncellensin mi?", icon: "alert", okText: "Uygula" })))
             return;
         const ks = new Set(keys);
         const f = a => {
@@ -5590,7 +5590,7 @@ function App() {
         });
         setAdmSel(new Set());
         setAdmBulk(b => ({ ...b, value: "" }));
-        showToast(`${keys.length} ürünün fiyatı güncellendi. Yayınlamak için "Kaydet ve yayınla".`);
+        showToast(`${keys.length} ürünün fiyatı güncellendi. Yayınlamak için "Kaydet".`);
     }
     async function admBulkDelete(keys) {
         if (!keys.length)
@@ -5598,13 +5598,13 @@ function App() {
         const ks = new Set(keys);
         const names = admAll.filter(({ c, it }) => ks.has(admKey(c.id, it.id))).map(({ it }) => it.name || "Adsız ürün");
         const list = names.slice(0, 8).join(", ") + (names.length > 8 ? ` ve ${names.length - 8} ürün daha` : "");
-        if (!(await uiConfirm(`${list}\n\n\u201CKaydet ve yayınla\u201Dya basmadan paneli kaydetmeden kapatırsanız silme geri alınır.`, { title: `${keys.length} ürün silinsin mi?`, danger: true })))
+        if (!(await uiConfirm(`${list}\n\n\u201CKaydet\u201Dya basmadan paneli kaydetmeden kapatırsanız silme geri alınır.`, { title: `${keys.length} ürün silinsin mi?`, danger: true })))
             return;
         updateData(x => { x.categories = x.categories.map(c => ({ ...c, items: c.items.filter(it => !ks.has(admKey(c.id, it.id))) })); });
         if (admEdit && ks.has(admKey(admEdit.cid, admEdit.id)))
             setAdmEdit(null);
         setAdmSel(new Set());
-        showToast(`${keys.length} ürün silindi. Kalıcı olması için "Kaydet ve yayınla".`);
+        showToast(`${keys.length} ürün silindi. Kalıcı olması için "Kaydet".`);
     }
     /* --- Sürükle-bırak ile sıralama (fare ve dokunmatik; tutamaçtan tutulur) --- */
     function admMoveTo(cid, fromId, toId) {
@@ -5669,7 +5669,7 @@ function App() {
                 return;
             }
             admMoveTo(from.cid, from.id, over.key.slice(from.cid.length + 1));
-            showToast("Sıra değişti. Kalıcı olması için \u201CKaydet ve yayınla\u201D.");
+            showToast("Sıra değişti. Kalıcı olması için \u201CKaydet\u201D.");
         };
         window.addEventListener("pointermove", move, { passive: false });
         window.addEventListener("pointerup", end);
@@ -5988,7 +5988,7 @@ function App() {
                         imgs.length === 0 && React.createElement("div", { className: "adm-empty" }, "Bu \u00FCr\u00FCnde hen\u00FCz foto\u011Fraf yok.")),
                     admTab === "fiyat" && React.createElement("div", { className: "adm-form" },
                         React.createElement("div", { className: "adm-info" },
-                            lay === "models" ? "Her satır bir model veya varyant ve kendi fotoğrafı. Sitede en düşük fiyat “başlayan fiyat” olarak görünür." : lay === "sizes" ? "Her satır bir ölçü seçeneği. Fiyatlar toplanmaz; sitede en düşük fiyat “başlayan fiyat” olarak görünür." : "Her satır bir modül. Takım fiyatı otomatik toplanabilir ya da elle girilebilir.",
+                            lay === "models" ? "Her satır bir model veya varyant ve kendi fotoğrafı. Sitede en düşük fiyat “başlayan fiyat” olarak görünür. Girdiğiniz fiyat nakittir; vadeli fiyat (TL) otomatik hesaplanır." : lay === "sizes" ? "Her satır bir ölçü seçeneği. Fiyatlar toplanmaz; sitede en düşük fiyat “başlayan fiyat” olarak görünür. Girdiğiniz fiyat nakittir; vadeli fiyat (TL) otomatik hesaplanır." : "Her satır bir modül. Takım fiyatı otomatik toplanabilir ya da elle girilebilir. Girdiğiniz fiyat nakittir; vadeli fiyat (TL) otomatik hesaplanır.",
                             " Fiyatlar TL, KDV hari\u00E7."),
                         p.parts.map((part, pi) => {
                             var _a;
@@ -6031,7 +6031,7 @@ function App() {
                     React.createElement("button", { type: "button", className: "adm-btn", onClick: close }, "Kapat"),
                     React.createElement("button", { type: "button", className: "adm-btn adm-btn-gold", disabled: saving, onClick: admSaveNow },
                         React.createElement(AdmIcon, { name: "save", size: 16 }),
-                        saving ? "Kaydediliyor…" : "Kaydet ve yayınla"))));
+                        saving ? "Kaydediliyor…" : "Kaydet"))));
     }
     function admRenderAddPicker() {
         if (!admAddPick)
@@ -6072,7 +6072,7 @@ function App() {
                         React.createElement("span", { className: "adm-dot" + (admDirty ? " is-warn" : "") }),
                         admDirty ? "Kaydedilmemiş değişiklik var" : "Her şey kaydedildi",
                         trBusy > 0 ? " · İngilizce çeviri yapılıyor (" + trBusy + ")" : ""),
-                    React.createElement("small", null, "De\u011Fi\u015Fiklikler \u201CKaydet ve yay\u0131nla\u201D ile bu cihaza kaydedilir."))),
+                    React.createElement("small", null, "Değişiklikler yalnızca bu cihazda saklanır. Müşterilerin görmesi için Ayarlar → Yedeği İndir ile gönderin."))),
             React.createElement("div", { className: "adm-main" },
                 React.createElement("header", { className: "adm-top" },
                     React.createElement("label", { className: "adm-search adm-search-top" },
@@ -6238,7 +6238,7 @@ function App() {
                         React.createElement("span", { className: "font-medium tabular-nums" }, productDims(selectedProduct))),
                     productDesc(selectedProduct) && React.createElement("p", { className: "text-sm opacity-75 mt-2 leading-relaxed" }, productDesc(selectedProduct)),
                     React.createElement("div", { className: "mt-5" },
-                        React.createElement("div", { className: "text-[11px] uppercase tracking-widest font-bold opacity-60 mb-3" }, t(language, "prices")),
+                        (normalizePrice(selectedProduct.price).parts.length > 0 || priceTotal(selectedProduct.price) === null) && React.createElement("div", { className: "text-[11px] uppercase tracking-widest font-bold opacity-60 mb-3" }, t(language, "prices")),
                         normalizePrice(selectedProduct.price).parts.length > 0 ? React.createElement("div", { className: "space-y-2" }, normalizePrice(selectedProduct.price).parts.map(part => React.createElement("div", { key: part.id, className: "price-row rounded-xl p-3 flex items-center justify-between gap-3" },
                             layoutOfItem(selectedProduct) === "models" && part.image && React.createElement("button", { type: "button", "aria-label": (partDisplay(part) || "") + (language === "EN" ? " photo" : " fotoğrafı"), onClick: () => { setFullScreenImage({ images: [part.image], index: 0 }); setLightboxZoom(1); }, className: "shrink-0 w-14 h-14 rounded-lg overflow-hidden", style: { background: "#f4f2ee" } },
                                 React.createElement(CachedImage, { src: part.image, alt: "", className: "w-full h-full object-contain", loading: "lazy", decoding: "async" })),
@@ -6252,7 +6252,7 @@ function App() {
                                     partDimensionDisplay(part))),
                             React.createElement("div", { className: "text-right whitespace-nowrap" },
                                 React.createElement("div", { className: "text-sm font-bold tabular-nums", style: { color: theme.accent } }, priceText(part)),
-                                !part.contactOnly && termAmount(viewCurrencyData(), part.amount, part.term) !== null && React.createElement("div", { className: "text-[11px] opacity-70 tabular-nums" }, termWord + " " + formatTL(termAmount(viewCurrencyData(), part.amount, part.term))))))) : React.createElement("div", { className: "rounded-xl p-4 text-center", style: { background: theme.accent + "12", color: theme.accent } }, t(language, "contactPrice")),
+                                !part.contactOnly && termAmount(viewCurrencyData(), part.amount, part.term) !== null && React.createElement("div", { className: "text-[11px] opacity-70 tabular-nums" }, termWord + " " + formatTL(termAmount(viewCurrencyData(), part.amount, part.term))))))) : (priceTotal(selectedProduct.price) !== null ? null : React.createElement("div", { className: "rounded-xl p-4 text-center", style: { background: theme.accent + "12", color: theme.accent } }, t(language, "contactPrice"))),
                         !isVariantLayout(layoutOfItem(selectedProduct)) && priceTotal(selectedProduct.price) !== null && React.createElement("div", { className: "mt-3 rounded-xl p-4 flex items-center justify-between", style: { background: theme.accent + "12", border: "1px solid " + theme.accent + "28" } },
                             React.createElement("span", { className: "text-[11px] uppercase tracking-widest font-bold opacity-65" }, language === "EN" ? "Set price" : "Takım fiyatı"),
                             React.createElement("span", { className: "text-right" },
