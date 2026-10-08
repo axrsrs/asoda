@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-9NM3jV1G+kVPeCjeN+pNWsp7epwfQwAoBHUvhbWvvSg=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Ns0xuWC2vOv/jGwRo20H5KdPMn3h317UYsj0xoFsVec=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1000,7 +1000,10 @@ function normalizePrice(price) {
 function formatTL(v) { const n = Number(v); return Number.isFinite(n) ? Math.floor(Math.abs(n) + 1e-9).toLocaleString("tr-TR", { maximumFractionDigits: 0 }) + " ₺" : "—"; }
 function termRateOf(data) { const r = Number(data?.termRate); return Number.isFinite(r) && r >= 0 ? r : 10; }
 /* Vadeli fiyat: kayıtlı (fiyat listesindeki) değer varsa o, yoksa nakit × (1 + vade farkı %). */
+function termOn(data) { try { return getCurrencyByData(data).id === "TRY"; } catch (_) { return true; } }
 function termAmount(data, amount, stored) {
+    if (!termOn(data))
+        return null; /* Vade yalnızca TL'de; USD/EUR seçiliyken vadeli fiyat yok */
     const st = priceNumber(stored);
     if (st !== null && st > 0)
         return st;
@@ -2795,7 +2798,7 @@ function asodaPrices(data, amount, term) {
     const n = priceNumber(amount);
     if (n === null)
         return { nakit: "—", vadeli: "—" };
-    return { nakit: pdfMoney(data, n), vadeli: formatTL(termAmount(data, n, term)) };
+    return { nakit: pdfMoney(data, n), vadeli: termOn(data) ? formatTL(termAmount(data, n, term)) : "" };
 }
 function asodaSectionRows(data, lang, coll, items) {
     const rows = [], strip = n => String(n || "").replace(new RegExp("^" + coll.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s+", "i"), "");
@@ -2846,7 +2849,7 @@ async function buildAsodaPDF(rawData, lang, opts = {}) {
     const data = { ...source, categories: pdfRealCategories(source) };
     const L = PDF_LAYOUT, W = L.W, H = L.H, acc = pdfCatalogAccent(data), AS = { rowH: 13.8, headH: 15 };
     const tx = L.left + 8, right = W - L.right - 8;
-    const cols = catalog ? { dimsR: right } : { dimsR: right - 188 - 8, termR: right - 4 - 0, nakitR: right - 96 - 4 };
+    const cols = catalog ? { dimsR: right } : { dimsR: right - 188 - 8, termR: right - 4 - 0, nakitR: termOn(data) ? right - 96 - 4 : right - 4 };
     const collections = asodaCollections(data);
     const T = (tr, en) => pdfLang === "EN" ? en : tr;
     /* --- görseller --- */
@@ -2897,7 +2900,7 @@ async function buildAsodaPDF(rawData, lang, opts = {}) {
         cur.content += pdfTextOp(T("ÖLÇÜ", "SIZE"), cols.dimsR, cy, 7.2, { bold: true, align: "right", color: [1, 1, 1] });
         if (!catalog) {
             cur.content += pdfTextOp(T("NAKİT", "CASH"), cols.nakitR, cy, 7.2, { bold: true, align: "right", color: acc.map(v => Math.min(1, v * .35 + .65)) });
-            cur.content += pdfTextOp(T("VADELİ (TL)", "TERM (TL)") + " +%" + termRateOf(data), cols.termR, cy, 7.2, { bold: true, align: "right", color: [1, 1, 1] });
+            if (termOn(data)) cur.content += pdfTextOp(T("VADELİ (TL)", "TERM (TL)") + " +%" + termRateOf(data), cols.termR, cy, 7.2, { bold: true, align: "right", color: [1, 1, 1] });
         }
         cur.yTop += h;
     };
@@ -2933,14 +2936,14 @@ async function buildAsodaPDF(rawData, lang, opts = {}) {
             else {
                 const pr = asodaPrices(data, r.amount, r.term);
                 cur.content += pdfTextOp(pr.nakit, cols.nakitR, base, set ? 9.4 : 8.8, { align: "right", bold: true, color: set ? acc.map(v => v * .62) : [0.06, 0.06, 0.06] });
-                cur.content += pdfTextOp(pr.vadeli, cols.termR, base, set ? 9 : 8.4, { align: "right", color: [0.3, 0.3, 0.3] });
+                if (pr.vadeli) cur.content += pdfTextOp(pr.vadeli, cols.termR, base, set ? 9 : 8.4, { align: "right", color: [0.3, 0.3, 0.3] });
             }
         }
         cur.yTop += h;
     };
     /* --- kapak --- */
     const cover = await renderPdfCoverPage(data, pdfLang, catalog ? (data.pdf?.catalogTitle || T("ÜRÜN KATALOĞU", "PRODUCT CATALOG")) : (data.pdf?.title || T("TOPTAN FİYAT LİSTESİ", "WHOLESALE PRICE LIST")));
-    cover.content += pdfTextOp([data.priceDate, !catalog ? T("Nakit · Vadeli", "Cash · Term") : "", data.pdf?.website].filter(Boolean).join("   ·   "), W - 42, 36, 9, { align: "right", color: [0.75, 0.75, 0.75], maxWidth: 480 });
+    cover.content += pdfTextOp([data.priceDate, !catalog ? (termOn(data) ? T("Nakit · Vadeli", "Cash · Term") : T("Nakit", "Cash")) : "", data.pdf?.website].filter(Boolean).join("   ·   "), W - 42, 36, 9, { align: "right", color: [0.75, 0.75, 0.75], maxWidth: 480 });
     pages.push(cover);
     pages.push(null); /* içindekiler sonradan */
     const startPage = new Map();
@@ -3029,7 +3032,7 @@ async function buildAsodaPDF(rawData, lang, opts = {}) {
     if (!catalog) {
         const notes = pdfLang === "EN" ? (data.priceNotes_en?.length ? data.priceNotes_en : data.priceNotes) : data.priceNotes;
         put(T("Fiyatlandırma", "Pricing"), 9.5, true, [0.06, 0.06, 0.06], 5);
-        put(T(`Vadeli fiyat = nakit fiyat + %${termRateOf(data)}. Tüm fiyatlar TL, KDV hariçtir.`, `Term price = cash price + ${termRateOf(data)}%. Prices exclude VAT.`), 8.6, false, [0.2, 0.2, 0.2], 8);
+        put(termOn(data) ? T(`Vadeli fiyat = nakit fiyat + %${termRateOf(data)}. Tüm fiyatlar TL, KDV hariçtir.`, `Term price = cash price + ${termRateOf(data)}%. Prices exclude VAT.`) : T("Fiyatlar nakittir ve KDV hariçtir.", "Prices are cash prices and exclude VAT."), 8.6, false, [0.2, 0.2, 0.2], 8);
         if (notes && notes.length) {
             put(T("Notlar", "Notes"), 9.5, true, [0.06, 0.06, 0.06], 5);
             notes.forEach((n, i) => put((i + 1) + ". " + n, 8.6, false, [0.2, 0.2, 0.2], 4));
@@ -5464,7 +5467,7 @@ function App() {
     /* Ölçü/model düzenindeki ürünlerde fiyatlar alternatiftir: toplam değil "…'den başlayan" gösterilir. */
     const cardPrice = i => isVariantLayout(layoutOfItem(i)) ? variantMinPrice(i.price) : priceTotal(i.price);
     const cardPriceLabel = i => (isVariantLayout(layoutOfItem(i)) && normalizePrice(i.price).parts.length) ? (language === "EN" ? "Cash from" : "Nakit başlayan") : (language === "EN" ? "Cash" : "Nakit");
-    const cardTerm = i => isVariantLayout(layoutOfItem(i)) ? variantMinTerm(data, i.price) : termTotalOf(data, i.price);
+    const cardTerm = i => isVariantLayout(layoutOfItem(i)) ? variantMinTerm(viewCurrencyData(), i.price) : termTotalOf(viewCurrencyData(), i.price);
     const termWord = language === "EN" ? "Term" : "Vadeli";
     const cardPriceSub = i => { const lay = layoutOfItem(i), n = normalizePrice(i.price).parts.length; if (lay === "sizes" && n)
         return language === "EN" ? `${n} items` : `${n} kalem · fiyat listesi`; if (lay === "models" && n)
@@ -6249,12 +6252,12 @@ function App() {
                                     partDimensionDisplay(part))),
                             React.createElement("div", { className: "text-right whitespace-nowrap" },
                                 React.createElement("div", { className: "text-sm font-bold tabular-nums", style: { color: theme.accent } }, priceText(part)),
-                                !part.contactOnly && termAmount(data, part.amount, part.term) !== null && React.createElement("div", { className: "text-[11px] opacity-70 tabular-nums" }, termWord + " " + formatTL(termAmount(data, part.amount, part.term))))))) : React.createElement("div", { className: "rounded-xl p-4 text-center", style: { background: theme.accent + "12", color: theme.accent } }, t(language, "contactPrice")),
+                                !part.contactOnly && termAmount(viewCurrencyData(), part.amount, part.term) !== null && React.createElement("div", { className: "text-[11px] opacity-70 tabular-nums" }, termWord + " " + formatTL(termAmount(viewCurrencyData(), part.amount, part.term))))))) : React.createElement("div", { className: "rounded-xl p-4 text-center", style: { background: theme.accent + "12", color: theme.accent } }, t(language, "contactPrice")),
                         !isVariantLayout(layoutOfItem(selectedProduct)) && priceTotal(selectedProduct.price) !== null && React.createElement("div", { className: "mt-3 rounded-xl p-4 flex items-center justify-between", style: { background: theme.accent + "12", border: "1px solid " + theme.accent + "28" } },
                             React.createElement("span", { className: "text-[11px] uppercase tracking-widest font-bold opacity-65" }, language === "EN" ? "Set price" : "Takım fiyatı"),
                             React.createElement("span", { className: "text-right" },
                                 React.createElement("span", { className: "block text-base font-bold tabular-nums", style: { color: theme.accent } }, (language === "EN" ? "Cash " : "Nakit ") + productMainPrice(selectedProduct)),
-                                termTotalOf(data, selectedProduct.price) !== null && React.createElement("span", { className: "block text-xs opacity-70 tabular-nums" }, termWord + " " + formatTL(termTotalOf(data, selectedProduct.price))))),
+                                termTotalOf(viewCurrencyData(), selectedProduct.price) !== null && React.createElement("span", { className: "block text-xs opacity-70 tabular-nums" }, termWord + " " + formatTL(termTotalOf(viewCurrencyData(), selectedProduct.price))))),
                         !isVariantLayout(layoutOfItem(selectedProduct)) && priceTotal(selectedProduct.price) !== null && hasContactParts(selectedProduct) && React.createElement("div", { className: "text-[11px] opacity-65 mt-2" }, language === "EN" ? "* Total excludes items marked “contact for price”." : "* Toplama, fiyatı sorulacak kalemler dahil değildir.")),
                     Array.isArray(selectedProduct.techImages) && selectedProduct.techImages.length > 0 && React.createElement("div", { className: "mt-5" },
                         React.createElement("div", { className: "text-[11px] uppercase tracking-widest font-bold opacity-60 mb-2" }, language === "EN" ? "Technical dimensions" : "Teknik ölçüler"),
