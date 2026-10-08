@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-xeUioQHveQJxW6qLHSMjv9EvEp0+KNlA5cMDqAHPWNQ=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-SQji8cLacBv+/mtLi/Bo5wxyvJgoKe236awAgymV3kM=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -6160,8 +6160,7 @@ function App() {
                     React.createElement("button", { type: "button", className: "adm-btn adm-btn-gold", disabled: saving, onClick: admSaveNow },
                         React.createElement(AdmIcon, { name: "save", size: 16 }),
                         saving ? "Kaydediliyor…" : React.createElement("span", null,
-                            "Kaydet",
-                            React.createElement("span", { className: "adm-hide-sm" }, " ve yay\u0131nla"))),
+                            "Kaydet")),
                     React.createElement("button", { type: "button", className: "adm-iconbtn adm-show-sm", "aria-label": "Paneli kapat", onClick: () => requestCloseAdminPanel() },
                         React.createElement(AdmIcon, { name: "x", size: 18 }))),
                 React.createElement("div", { className: "adm-content" },
