@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-KVVFbcm2tdDcWFW3WW1X0+9e2lz3GYJSy1N/xfo5qZw=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-EyZccRJsYXCLMkmmVhp4Dv2ZSXp86gZLi+oklxvvWKc=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1832,13 +1832,15 @@ function convertPriceByData(source, amount) {
     const n = Number(amount), c = source?.currency?.selected || "TRY";
     if (!Number.isFinite(n))
         return null;
+    /* İskonto yalnızca USD / EUR nakit fiyatlarında uygulanır (0-100 %). */
+    const dr = Number(source?.discountRate), disc = dr > 0 && dr < 100 ? 1 - dr / 100 : 1;
     if (c === "USD") {
         const r = Number(source?.currency?.usdRate);
-        return r > 0 ? n / r : null;
+        return r > 0 ? n * disc / r : null;
     }
     if (c === "EUR") {
         const r = Number(source?.currency?.eurRate);
-        return r > 0 ? n / r : null;
+        return r > 0 ? n * disc / r : null;
     }
     return n;
 }
@@ -3032,7 +3034,7 @@ async function buildAsodaPDF(rawData, lang, opts = {}) {
     if (!catalog) {
         const notes = pdfLang === "EN" ? (data.priceNotes_en?.length ? data.priceNotes_en : data.priceNotes) : data.priceNotes;
         put(T("Fiyatlandırma", "Pricing"), 9.5, true, [0.06, 0.06, 0.06], 5);
-        put(termOn(data) ? T(`Vadeli fiyat = nakit fiyat + %${termRateOf(data)}. Tüm fiyatlar TL, KDV hariçtir.`, `Term price = cash price + ${termRateOf(data)}%. Prices exclude VAT.`) : T("Fiyatlar nakittir ve KDV hariçtir.", "Prices are cash prices and exclude VAT."), 8.6, false, [0.2, 0.2, 0.2], 8);
+        put(termOn(data) ? T(`Vadeli fiyat = nakit fiyat + %${termRateOf(data)}. Tüm fiyatlar TL, KDV hariçtir.`, `Term price = cash price + ${termRateOf(data)}%. Prices exclude VAT.`) : T("Fiyatlar nakittir ve KDV hariçtir." + (Number(data.discountRate) > 0 ? ` %${data.discountRate} iskonto uygulanmıştır.` : ""), "Prices are cash prices and exclude VAT." + (Number(data.discountRate) > 0 ? ` ${data.discountRate}% discount applied.` : "")), 8.6, false, [0.2, 0.2, 0.2], 8);
         if (notes && notes.length) {
             put(T("Notlar", "Notes"), 9.5, true, [0.06, 0.06, 0.06], 5);
             notes.forEach((n, i) => put((i + 1) + ". " + n, 8.6, false, [0.2, 0.2, 0.2], 4));
@@ -4690,11 +4692,36 @@ function App() {
     }
     function toggleCategory(id) { setOpenCategories(p => ({ ...p, [id]: !p[id] })); }
     function openCategory(id) { setOpenCategories(p => ({ ...p, [id]: true })); }
+    const [discountRate, setDiscountRateState] = useState(() => { try {
+        const v = Number(localStorage.getItem("asoda_discount_v1"));
+        return Number.isFinite(v) && v > 0 && v < 100 ? v : 0;
+    }
+    catch (_) {
+        return 0;
+    } });
+    const [discSel, setDiscSel] = useState({});
+    function setDiscountRate(v) {
+        const n = Math.max(0, Math.min(99, Number(String(v).replace(",", ".")) || 0));
+        setDiscountRateState(n);
+        lsSet("asoda_discount_v1", String(n));
+    }
     function viewCurrencyData() {
         /* Ziyaretçinin para birimi seçimi kataloğun varsayılanını DEĞİŞTİRMEZ; ayrı saklanır. */
         if (!data || panelOpen || !viewCurrency)
             return data;
-        return { ...data, currency: { ...(data.currency || {}), selected: viewCurrency } };
+        return { ...data, currency: { ...(data.currency || {}), selected: viewCurrency }, discountRate: (viewCurrency === "USD" || viewCurrency === "EUR") ? discountRate : 0 };
+    }
+    const isFxView = !panelOpen && (viewCurrency === "USD" || viewCurrency === "EUR");
+    const discountActive = isFxView && discountRate > 0;
+    const discKey = (item, part) => (item?.id || "") + "|" + (part?.id || "");
+    const discSelCount = item => item ? normalizePrice(item.price).parts.filter(x => discSel[discKey(item, x)]).length : 0;
+    /* Seçim varsa iskonto yalnızca seçili kalemlere; seçim yoksa hepsine uygulanır. */
+    function partPriceText(item, part) {
+        if (!part || part.contactOnly || part.amount === null || part.amount === undefined || part.amount === "")
+            return t(language, "contactPrice");
+        if (discountActive && discSelCount(item) > 0 && !discSel[discKey(item, part)])
+            return formatAmountByData({ ...viewCurrencyData(), discountRate: 0 }, part.amount) || t(language, "contactPrice");
+        return formatAmount(part.amount) || t(language, "contactPrice");
     }
     function getCurrency() { return getCurrencyByData(viewCurrencyData()); }
     function convertPrice(amount) { return convertPriceByData(viewCurrencyData(), amount); }
@@ -5467,6 +5494,7 @@ function App() {
     /* Ölçü/model düzenindeki ürünlerde fiyatlar alternatiftir: toplam değil "…'den başlayan" gösterilir. */
     const cardPrice = i => isVariantLayout(layoutOfItem(i)) ? variantMinPrice(i.price) : priceTotal(i.price);
     const cardPriceLabel = i => (isVariantLayout(layoutOfItem(i)) && normalizePrice(i.price).parts.length) ? (language === "EN" ? "Cash from" : "Nakit başlayan") : (language === "EN" ? "Cash" : "Nakit");
+    const discTag = discountActive ? (language === "EN" ? ` −${discountRate}%` : ` −%${discountRate}`) : "";
     const cardTerm = i => isVariantLayout(layoutOfItem(i)) ? variantMinTerm(viewCurrencyData(), i.price) : termTotalOf(viewCurrencyData(), i.price);
     const termWord = language === "EN" ? "Term" : "Vadeli";
     const cardPriceSub = i => { const lay = layoutOfItem(i), n = normalizePrice(i.price).parts.length; if (lay === "sizes" && n)
@@ -6157,6 +6185,11 @@ function App() {
                     React.createElement("h2", { className: "text-xl font-bold truncate" }, q ? (language === "EN" ? "Search results" : "Arama sonuçları") : (activeCategory ? categoryDisplay(activeCategory) : t(language, "premium"))),
                     React.createElement("div", { className: "text-xs opacity-80 mt-1", "aria-live": "polite" }, q ? (language === "EN" ? `${visibleProducts.length} ${visibleProducts.length === 1 ? "product" : "products"} found for “${search.trim()}”` : `“${search.trim()}” için ${visibleProducts.length} ürün bulundu`) : `${visibleProducts.length} ${t(language, "products")}`)),
                 q && React.createElement("button", { type: "button", onClick: () => setSearch(""), className: "text-xs opacity-70 underline underline-offset-4 min-h-[44px] px-2 shrink-0" }, t(language, "clearSearch")))),
+        isFxView && React.createElement("div", { className: "px-4 pt-1 pb-1" },
+            React.createElement("div", { className: "max-w-5xl mx-auto flex items-center gap-2 flex-wrap text-xs" },
+                React.createElement("label", { htmlFor: "disc-rate", className: "font-bold uppercase tracking-wider opacity-75" }, language === "EN" ? "Discount %" : "İskonto %"),
+                React.createElement("input", { id: "disc-rate", type: "number", inputMode: "decimal", min: 0, max: 99, step: "any", value: discountRate || "", placeholder: "0", onChange: e => setDiscountRate(e.target.value), style: { width: 76, minHeight: 40, borderRadius: 10, padding: "0 10px", background: theme.card, color: theme.text, border: "1px solid " + theme.text + "33", textAlign: "center" } }),
+                React.createElement("span", { className: "opacity-65" }, discountRate > 0 ? (language === "EN" ? "Applied to all cash prices (USD/EUR only)." : "Tüm nakit fiyatlara uygulanır (yalnızca USD/EUR).") : (language === "EN" ? "Optional · USD/EUR only" : "İsteğe bağlı · yalnızca USD/EUR")))),
         !q && React.createElement("div", { ref: categoryBarRef, className: "sticky z-20 px-4 pt-2 pb-2 category-bar" + (barStuck ? " is-stuck" : ""), style: { top: "calc(max(40px, env(safe-area-inset-top, 0px) + 32px) + 50px)", "--catbar-bg": theme.bg } },
             React.createElement("div", { className: "max-w-5xl mx-auto category-scroll", ref: el => {
                     /* Fare tekerleği şeridi yatay kaydırır. React'in tekerlek dinleyicisi "passive" olduğu için
@@ -6203,7 +6236,7 @@ function App() {
                     productDesc(item) && React.createElement("div", { className: "text-xs opacity-65 mt-1 leading-snug line-clamp-2" }, productDesc(item)),
                     cardPrice(item) !== null ? React.createElement("div", { className: "mt-3 pt-3 border-t", style: { borderColor: theme.text + "14" } },
                         React.createElement("div", { className: "flex items-center justify-between flex-wrap", style: { columnGap: 8, rowGap: 2 } },
-                            React.createElement("span", { className: "text-[10px] uppercase tracking-wider font-bold opacity-75 whitespace-nowrap" }, cardPriceLabel(item)),
+                            React.createElement("span", { className: "text-[10px] uppercase tracking-wider font-bold opacity-75 whitespace-nowrap" }, cardPriceLabel(item) + discTag),
                             React.createElement("span", { className: "text-[13px] font-bold whitespace-nowrap tabular-nums", style: { color: theme.accent } }, formatAmount(cardPrice(item)))),
                         cardTerm(item) !== null && React.createElement("div", { className: "flex items-center justify-between flex-wrap mt-1", style: { columnGap: 8 } },
                             React.createElement("span", { className: "text-[10px] uppercase tracking-wider font-bold opacity-60 whitespace-nowrap" }, termWord),
@@ -6239,7 +6272,11 @@ function App() {
                     productDesc(selectedProduct) && React.createElement("p", { className: "text-sm opacity-75 mt-2 leading-relaxed" }, productDesc(selectedProduct)),
                     React.createElement("div", { className: "mt-5" },
                         (normalizePrice(selectedProduct.price).parts.length > 0 || priceTotal(selectedProduct.price) === null) && React.createElement("div", { className: "text-[11px] uppercase tracking-widest font-bold opacity-60 mb-3" }, t(language, "prices")),
+                        discountActive && normalizePrice(selectedProduct.price).parts.length > 0 && React.createElement("div", { className: "mb-3 rounded-xl p-3 text-xs leading-snug flex items-center justify-between gap-3", style: { background: theme.accent + "14", color: theme.accent } },
+                            React.createElement("span", null, language === "EN" ? `${discountRate}% discount applied. Tick items to apply it to those only.` : `%${discountRate} iskonto uygulanıyor. Yalnızca belirli kalemlere uygulamak için kutuları işaretleyin.`),
+                            discSelCount(selectedProduct) > 0 && React.createElement("button", { type: "button", className: "underline underline-offset-4 shrink-0 min-h-[36px]", onClick: () => setDiscSel(prev => { const n = { ...prev }; normalizePrice(selectedProduct.price).parts.forEach(x => { delete n[discKey(selectedProduct, x)]; }); return n; }) }, language === "EN" ? "Clear" : "Temizle")),
                         normalizePrice(selectedProduct.price).parts.length > 0 ? React.createElement("div", { className: "space-y-2" }, normalizePrice(selectedProduct.price).parts.map(part => React.createElement("div", { key: part.id, className: "price-row rounded-xl p-3 flex items-center justify-between gap-3" },
+                            discountActive && !part.contactOnly && React.createElement("input", { type: "checkbox", "aria-label": (partDisplay(part) || "") + (language === "EN" ? " — apply discount" : " — iskonto uygula"), checked: !!discSel[discKey(selectedProduct, part)], onChange: e => { const k = discKey(selectedProduct, part), c = e.target.checked; setDiscSel(prev => ({ ...prev, [k]: c })); }, style: { width: 22, height: 22, flexShrink: 0, accentColor: theme.accent } }),
                             layoutOfItem(selectedProduct) === "models" && part.image && React.createElement("button", { type: "button", "aria-label": (partDisplay(part) || "") + (language === "EN" ? " photo" : " fotoğrafı"), onClick: () => { setFullScreenImage({ images: [part.image], index: 0 }); setLightboxZoom(1); }, className: "shrink-0 w-14 h-14 rounded-lg overflow-hidden", style: { background: "#f4f2ee" } },
                                 React.createElement(CachedImage, { src: part.image, alt: "", className: "w-full h-full object-contain", loading: "lazy", decoding: "async" })),
                             React.createElement("div", { className: "text-sm font-medium flex-1 min-w-0" },
@@ -6251,9 +6288,12 @@ function App() {
                                     " ",
                                     partDimensionDisplay(part))),
                             React.createElement("div", { className: "text-right whitespace-nowrap" },
-                                React.createElement("div", { className: "text-sm font-bold tabular-nums", style: { color: theme.accent } }, priceText(part)),
+                                React.createElement("div", { className: "text-sm font-bold tabular-nums", style: { color: theme.accent } }, partPriceText(selectedProduct, part)),
                                 !part.contactOnly && termAmount(viewCurrencyData(), part.amount, part.term) !== null && React.createElement("div", { className: "text-[11px] opacity-70 tabular-nums" }, termWord + " " + formatTL(termAmount(viewCurrencyData(), part.amount, part.term))))))) : (priceTotal(selectedProduct.price) !== null ? null : React.createElement("div", { className: "rounded-xl p-4 text-center", style: { background: theme.accent + "12", color: theme.accent } }, t(language, "contactPrice"))),
-                        !isVariantLayout(layoutOfItem(selectedProduct)) && priceTotal(selectedProduct.price) !== null && React.createElement("div", { className: "mt-3 rounded-xl p-4 flex items-center justify-between", style: { background: theme.accent + "12", border: "1px solid " + theme.accent + "28" } },
+                        !isVariantLayout(layoutOfItem(selectedProduct)) && discountActive && discSelCount(selectedProduct) > 0 && React.createElement("div", { className: "mt-3 rounded-xl p-4 flex items-center justify-between", style: { background: theme.accent + "14" } },
+                            React.createElement("span", { className: "text-[11px] uppercase tracking-widest font-bold opacity-65" }, language === "EN" ? "Ticked items total (discounted)" : "Seçilenlerin toplamı (iskontolu)"),
+                            React.createElement("span", { className: "text-base font-bold tabular-nums", style: { color: theme.accent } }, formatAmountByData({ ...viewCurrencyData(), discountRate: 0 }, normalizePrice(selectedProduct.price).parts.filter(x => !x.contactOnly && priceNumber(x.amount) > 0 && discSel[discKey(selectedProduct, x)]).reduce((sum, x) => sum + priceNumber(x.amount) * (1 - discountRate / 100), 0)))),
+                        !isVariantLayout(layoutOfItem(selectedProduct)) && !(discountActive && discSelCount(selectedProduct) > 0) && priceTotal(selectedProduct.price) !== null && React.createElement("div", { className: "mt-3 rounded-xl p-4 flex items-center justify-between", style: { background: theme.accent + "12", border: "1px solid " + theme.accent + "28" } },
                             React.createElement("span", { className: "text-[11px] uppercase tracking-widest font-bold opacity-65" }, language === "EN" ? "Set price" : "Takım fiyatı"),
                             React.createElement("span", { className: "text-right" },
                                 React.createElement("span", { className: "block text-base font-bold tabular-nums", style: { color: theme.accent } }, (language === "EN" ? "Cash " : "Nakit ") + productMainPrice(selectedProduct)),
