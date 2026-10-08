@@ -204,7 +204,7 @@ header{animation:luxuryEnter 1s cubic-bezier(.2,.75,.2,1) both}
 
 <style id="adm-new">
 /* ===== YENİ YÖNETİM PANELİ ===== */
-.adm-shell{position:fixed;inset:0;z-index:180;display:flex;background:#0E0E10;color:#F3F0E8;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;--adm-line:#26262B;--adm-card:#18181C;--adm-muted:#A7A297;--adm-gold:#E2BD45}
+.adm-shell{position:fixed;inset:0;height:100vh;height:100dvh;overflow:hidden;z-index:180;display:flex;background:#0E0E10;color:#F3F0E8;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;--adm-line:#26262B;--adm-card:#18181C;--adm-muted:#A7A297;--adm-gold:#E2BD45}
 .adm-shell *{box-sizing:border-box}
 .adm-shell button{font:inherit;color:inherit;cursor:pointer}
 .adm-shell button:disabled{opacity:.45;cursor:not-allowed}
@@ -226,10 +226,10 @@ header{animation:luxuryEnter 1s cubic-bezier(.2,.75,.2,1) both}
 .adm-status small{font-size:11.5px;font-weight:500;color:var(--adm-muted);line-height:1.4}
 .adm-dot{width:8px;height:8px;border-radius:99px;background:#4ADE80;flex-shrink:0}
 .adm-dot.is-warn{background:#E2BD45}
-.adm-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.adm-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
 .adm-top{height:68px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 28px;border-bottom:1px solid var(--adm-line)}
 .adm-top-spacer{flex:1}
-.adm-content{flex:1;overflow-y:auto;overscroll-behavior:contain}
+.adm-content{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
 .adm-page{padding:26px 32px 120px;max-width:1240px;display:flex;flex-direction:column;gap:20px}
 .adm-page-wide{max-width:none}
 .adm-legacy{padding:24px 32px 80px;max-width:760px}
@@ -430,6 +430,9 @@ header{animation:luxuryEnter 1s cubic-bezier(.2,.75,.2,1) both}
 .adm-table tr.is-dropbad td{box-shadow:inset 0 3px 0 #B24A4A}
 body.adm-dragging{cursor:grabbing;user-select:none}
 
+
+/* iOS: 16px'den küçük yazı alanlarına dokununca sayfa kendiliğinden yakınlaşır */
+@media (max-width:900px),(pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea,.adm-input,.admin-input{font-size:16px!important}}
 </style>
 <style id="admin-clean-final">
 .admin-panel-scroll{scrollbar-width:thin}
