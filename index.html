@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HUMIcUT/h/CQWWpqKpaeRq+OjXXc6EgqF/8Qe5FA6zI=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-YXoxmAQhxHqwKut3gL2h5cIlUmsOEIvg1NU8+cGcXQM=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -631,7 +631,8 @@ function sanitizeCatalogData(data) {
     clean.currency = {
         selected: ["TRY", "USD", "EUR"].includes(clean.currency?.selected) ? clean.currency.selected : "TRY",
         usdRate: (n => Number.isFinite(n) && n > 0 && n < 1000000 ? n : base.currency.usdRate)(Number(clean.currency?.usdRate)),
-        eurRate: (n => Number.isFinite(n) && n > 0 && n < 1000000 ? n : base.currency.eurRate)(Number(clean.currency?.eurRate))
+        eurRate: (n => Number.isFinite(n) && n > 0 && n < 1000000 ? n : base.currency.eurRate)(Number(clean.currency?.eurRate)),
+        autoRate: clean.currency?.autoRate === true
     };
     if (clean.pdf) {
         for (const k of ["title", "footer", "website", "catalogTitle"])
@@ -933,7 +934,7 @@ function defaultData() {
         phone: DEFAULT_PHONE, preloadVersion: PRELOAD_VERSION,
         logo: { src: "urunler/logo-asoda.png", size: 220, width: 220, height: 52, position: "center" },
         theme: { ...THEMES[7], bgImage: null }, cardImgSize: 180,
-        currency: { selected: "TRY", usdRate: 40, eurRate: 47 },
+        currency: { selected: "TRY", usdRate: 40, eurRate: 47, autoRate: false },
         categories: createDefaultCategories().map(c => ({ ...c, coverImage: PRELOADED_COVERS[c.id] || null, items: JSON.parse(JSON.stringify(PRELOADED_ITEMS[c.id] || [])) })), language: "TR",
         pdf: { title: "TOPTAN FİYAT LİSTESİ", footer: "Asoda Mobilya · İnegöl / Bursa · Tel: +90 224 718 60 01", showPageNumbers: true, website: "www.asodamobilya.com", useCategoryCovers: true, catalogTitle: "ÜRÜN KATALOĞU", catalogTemplate: "model", coverLogo: { src: "urunler/logo-asoda.png" } }
     };
@@ -1793,12 +1794,29 @@ function getCurrencyByData(source) {
     const id = source?.currency?.selected || "TRY";
     return CURRENCIES.find(x => x.id === id) || CURRENCIES[0];
 }
-/* USD / EUR fiyatları kurla çevrilmez; her kalem için ayrı girilir. Bu görünüm, seçilen para biriminin elle girilmiş
+/* Otomatik kur kapalıyken USD / EUR fiyatları kurla çevrilmez; her kalem için ayrı girilir. Bu görünüm, seçilen para biriminin elle girilmiş
    fiyatlarını "amount" yerine koyar (girilmemişse "Fiyat için iletişime geçin"). */
+/* Açık zeminli tema mı? (yönetimdeki eski bölümler açık temada renk tersine çevrilerek gösterilir) */
+function isLightHex(hex) {
+    try { const h = String(hex || "").replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150; }
+    catch (_) { return false; }
+}
 function fxData(source, id) {
     if (!source || (id !== "USD" && id !== "EUR") || source.__fx === id)
         return source;
     const k = id === "USD" ? "usd" : "eur", tk = id === "USD" ? "manualTotalUsd" : "manualTotalEur";
+    /* Otomatik kur açıksa: elle girilen USD/EUR fiyatı varsa o, yoksa TL fiyatı kurla çevrilir. */
+    const rate = Number(source.currency?.[id === "USD" ? "usdRate" : "eurRate"]);
+    if (source.currency?.autoRate && rate > 0) {
+        const cats = (source.categories || []).map(c => ({ ...c, items: (c.items || []).map(i => {
+                if (!i.price)
+                    return i;
+                const p = normalizePrice(i.price);
+                const parts = p.parts.map(pt => (pt.contactOnly || pt[k] === null || pt[k] === undefined) ? pt : { ...pt, amount: pt[k] * rate });
+                return { ...i, price: { ...p, manualTotal: (p[tk] !== null && p[tk] !== undefined) ? p[tk] * rate : p.manualTotal, parts } };
+            }) }));
+        return { ...source, categories: cats, __fx: id, currency: { ...(source.currency || {}), selected: id } };
+    }
     const categories = (source.categories || []).map(c => ({ ...c, items: (c.items || []).map(i => {
             if (!i.price)
                 return i;
@@ -5747,8 +5765,8 @@ function App() {
                     React.createElement("button", { type: "button", className: "adm-linkbtn", disabled: trBusy > 0, onClick: translateMissingNow }, trBusy > 0 ? "Çevriliyor… (" + trBusy + ")" : "Eksik çevirileri tamamla")),
                 React.createElement("div", { className: "adm-card adm-stat" },
                     React.createElement("div", { className: "adm-stat-l" }, "USD / EUR fiyatı"),
-                    React.createElement("div", { className: "adm-stat-v" }, fxMissing ? fxMissing : React.createElement(AdmIcon, { name: "check", size: 28 })),
-                    React.createElement("div", { className: "adm-stat-s " + (fxMissing ? "adm-warn" : "adm-ok") }, fxMissing ? "kalemde USD veya EUR fiyatı eksik" : "Hepsi girilmiş"),
+                    React.createElement("div", { className: "adm-stat-v" }, (fxMissing && !data.currency?.autoRate) ? fxMissing : React.createElement(AdmIcon, { name: "check", size: 28 })),
+                    React.createElement("div", { className: "adm-stat-s " + ((fxMissing && !data.currency?.autoRate) ? "adm-warn" : "adm-ok") }, data.currency?.autoRate ? "Otomatik kur açık" : fxMissing ? "kalemde USD veya EUR fiyatı eksik" : "Hepsi girilmiş"),
                     React.createElement("button", { type: "button", className: "adm-linkbtn", onClick: () => admGo("urunler") }, "Ürünlere git"))),
             React.createElement("div", { className: "adm-grid4" },
                 React.createElement("button", { type: "button", className: "adm-action adm-action-gold", onClick: () => setAdmAddPick(true) },
@@ -5994,7 +6012,7 @@ function App() {
                     admTab === "fiyat" && React.createElement("div", { className: "adm-form" },
                         React.createElement("div", { className: "adm-info" },
                             lay === "models" ? "Her satır bir model veya varyant ve kendi fotoğrafı. Sitede en düşük fiyat “başlayan fiyat” olarak görünür. Girdiğiniz fiyat nakittir; vadeli fiyat (TL) otomatik hesaplanır." : lay === "sizes" ? "Her satır bir ölçü seçeneği. Fiyatlar toplanmaz; sitede en düşük fiyat “başlayan fiyat” olarak görünür. Girdiğiniz fiyat nakittir; vadeli fiyat (TL) otomatik hesaplanır." : "Her satır bir modül. Takım fiyatı otomatik toplanabilir ya da elle girilebilir. Girdiğiniz fiyat nakittir; vadeli fiyat (TL) otomatik hesaplanır.",
-                            " Fiyatlar TL, KDV hari\u00E7. USD ve EUR fiyatları kurla çevrilmez, ayrı girilir; boş bırakılan para biriminde \u201CFiyat için iletişime geçin\u201D görünür."),
+                            data.currency?.autoRate ? " Fiyatlar TL, KDV hari\u00E7. Otomatik kur açık: USD/EUR boş bırakılırsa TL fiyatından kurla hesaplanır; girerseniz girdiğiniz fiyat kullanılır." : " Fiyatlar TL, KDV hari\u00E7. USD ve EUR fiyatları kurla çevrilmez, ayrı girilir; boş bırakılan para biriminde \u201CFiyat için iletişime geçin\u201D görünür."),
                         p.parts.map((part, pi) => {
                             var _a;
                             return React.createElement("div", { key: part.id, className: "adm-part" },
@@ -6386,11 +6404,22 @@ function App() {
                         React.createElement("div", { className: "text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-3" }, t("TR", "currency")),
                         React.createElement("div", { className: "bg-neutral-900 rounded-xl p-4 mb-5" },
                             React.createElement("div", { className: "text-xs text-neutral-400 mb-3" }, "Katalogun varsayılan para birimi:"),
-                            React.createElement("div", { className: "grid grid-cols-3 gap-2 mb-4" }, CURRENCIES.map(c => React.createElement("button", { key: c.id, onClick: () => setPath(["currency", "selected"], c.id), className: "py-2.5 rounded-lg text-xs font-bold", style: { background: currency.id === c.id ? theme.accent : "#171717", color: currency.id === c.id ? "#fff" : "#999", border: "1px solid " + (currency.id === c.id ? theme.accent : "#333") } },
+                            React.createElement("div", { className: "grid grid-cols-3 gap-2 mb-4" }, CURRENCIES.map(c => React.createElement("button", { key: c.id, onClick: () => setPath(["currency", "selected"], c.id), className: "py-2.5 rounded-lg text-xs font-bold", style: (sel => { const acc = isLightHex(theme.bg) ? "#EDEDED" : theme.accent, ink2 = isLightHex(theme.bg) ? "#111" : "#fff"; return { background: sel ? acc : "#171717", color: sel ? ink2 : "#999", border: "1px solid " + (sel ? acc : "#333") }; })(currency.id === c.id) },
                                 c.symbol,
                                 " ",
                                 c.name))),
-                            React.createElement("div", { className: "text-xs leading-relaxed", style: { color: "#A7A297" } }, "Kur kullanılmaz. Her ürünün ve kalemin TL, USD ve EUR fiyatı ürün düzenleme ekranında ayrı girilir. Çeviri (TR/EN) otomatik yapılır."))),
+                            React.createElement("label", { className: "flex items-center gap-3 py-3 border-t border-neutral-800 cursor-pointer", style: { minHeight: 48 } },
+                                React.createElement("input", { type: "checkbox", id: "auto-rate", checked: !!data.currency?.autoRate, onChange: e => setPath(["currency", "autoRate"], e.target.checked), style: { width: 20, height: 20, accentColor: "#C9A227" } }),
+                                React.createElement("span", { className: "text-sm font-bold", style: { color: "#EDEDED" } }, "Otomatik kur (USD / EUR)")),
+                            data.currency?.autoRate ? React.createElement("div", null,
+                                React.createElement("div", { className: "grid grid-cols-2 gap-3 mb-3" },
+                                    React.createElement("label", { className: "block" },
+                                        React.createElement("div", { className: "text-xs text-neutral-400 mb-1" }, "1 USD = ? TL"),
+                                        React.createElement(NumField, { id: "usd-rate", className: "admin-input", inputMode: "decimal", allowEmpty: false, min: 0.0001, value: data.currency?.usdRate ?? "", onValue: v => { if (v > 0) setPath(["currency", "usdRate"], v); } })),
+                                    React.createElement("label", { className: "block" },
+                                        React.createElement("div", { className: "text-xs text-neutral-400 mb-1" }, "1 EUR = ? TL"),
+                                        React.createElement(NumField, { id: "eur-rate", className: "admin-input", inputMode: "decimal", allowEmpty: false, min: 0.0001, value: data.currency?.eurRate ?? "", onValue: v => { if (v > 0) setPath(["currency", "eurRate"], v); } }))),
+                                React.createElement("div", { className: "text-xs leading-relaxed", style: { color: "#A7A297" } }, "Açık: USD/EUR fiyatı girilmemiş kalemler TL fiyatından bu kurla hesaplanır. Elle girdiğiniz USD/EUR fiyatı varsa o kullanılır. Vadeli sadece TL'de vardır.")) : React.createElement("div", { className: "text-xs leading-relaxed", style: { color: "#A7A297" } }, "Kapalı: kur kullanılmaz. Her ürünün TL, USD ve EUR fiyatı ürün düzenleme ekranında ayrı girilir; USD/EUR boş bırakılan kalemde “Fiyat için iletişime geçin” görünür. Çeviri (TR/EN) her durumda otomatiktir."))),
                     React.createElement("div", { className: adminSection === "katalog" ? "" : "hidden" },
                         React.createElement("div", { id: "catalog-tab" },
                             React.createElement("div", { className: "mb-4 rounded-xl p-3", style: { background: theme.accent + "12", border: "1px solid " + theme.accent + "25" } },
