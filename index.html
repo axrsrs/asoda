@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Y7NIUF43otAOqRsbM7D5/p9eZ3G7llD4sZlmNM9fy7s=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-pY5IO1MXlRiyjuWAKw2+Ojl/WzDolu/nXLEHHUjw5y8=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -531,8 +531,17 @@ function safeId(value) {
     const s = safeShortText(value, SECURITY_LIMITS.id);
     return /^[A-Za-z0-9._~-]+$/.test(s) ? s : "";
 }
+/* Eski düz dosya adlarını (ör. "aqua_koltuk-1w.webp", "logo-asoda.png") klasörlü yola çevirir;
+   cihazda daha önce kaydedilmiş katalogdaki görseller ve logo kaybolmaz. */
+function migrateLegacyAssetPath(s) {
+    if (/urunler\//i.test(s) || /^(?:data|blob):/i.test(s))
+        return s;
+    return s
+        .replace(/(^|\/)(aqua|atlantis|bien|eva|icon|lego|line|moon|olcu|part|royal)_([A-Za-z0-9.-]+\.webp)$/i, "$1urunler/$2/$3")
+        .replace(/(^|\/)(logo-(?:asoda|active-design)\.png)$/i, "$1urunler/$2");
+}
 function safeAssetSource(value) {
-    const s = String(value ?? "").trim();
+    const s = migrateLegacyAssetPath(String(value ?? "").trim());
     if (!s)
         return ""; /* boş değer sayfanın kendi adresine çözülmesin */
     if (/^data:image\/(?:png|jpe?g|webp|gif|svg\+xml);/i.test(s))
