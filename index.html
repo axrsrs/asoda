@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-TifdQcHEvMBywpYkVO2vA01/Joi3xuF0Zm9w8JIUQeY=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Y7NIUF43otAOqRsbM7D5/p9eZ3G7llD4sZlmNM9fy7s=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -202,6 +202,17 @@ header{animation:luxuryEnter 1s cubic-bezier(.2,.75,.2,1) both}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
 
+<style id="perf">
+/* PERFORMANS: sürekli çalışan animasyonlar kapalı, kartlar ayrı GPU katmanı açmaz */
+body::before,body::after,#root::before,#root::after,.category-chip.active::after{animation:none!important}
+.product-card{will-change:auto!important;transform:none}
+@media (hover:none),(max-width:900px),(prefers-reduced-motion:reduce){
+  body::after,#root::before,#root::after,.product-card::before{display:none!important}
+  *,*::before,*::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .product-card{animation:none!important;transition:none!important}
+  .product-card:hover{transform:none!important}
+}
+</style>
 <style id="adm-new">
 /* ===== YENİ YÖNETİM PANELİ ===== */
 .adm-shell{position:fixed;inset:0;height:100vh;height:100dvh;overflow:hidden;z-index:180;display:flex;background:var(--a-bg);color:var(--a-fg);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;--adm-line:#26262B;--adm-card:#18181C;--adm-muted:#A7A297;--adm-gold:#E2BD45;--a-bg:#0E0E10;--a-side:#121215;--a-raise:#1D1D22;--a-fg:#F3F0E8;--a-fg2:#CFCAC0;--a-dim:#8A867C;--a-bd:#3A3A40;--a-onacc:#141414;--a-warnbg:#2A2312;--a-warnfg:#F3E6BE;--a-okbg:#16261C;--a-okfg:#BFF0CF;--a-ok:#4ADE80;--a-bad:#F2A3A3;--a-badbd:#5A2A2A;--a-row:#222227;--a-sel:#262214;--a-badbg:#2A1616;--a-selbd:#5C4A12}
@@ -1130,11 +1141,18 @@ function normalizeData(input) {
 function getCachedImageObjectUrl(src) {
     return Promise.resolve(src);
 }
-function CachedImage({ src, ...props }) {
+/* Hafif görsel: kartlarda urunler/k (720px), detayda urunler/m (1400px); yoksa asıl dosya. */
+function sizedAssetSource(raw, size) {
+    if (!size || typeof raw !== "string") return raw;
+    const m = /^(?:\.\/)?urunler\/(?!k\/|m\/)([^/]+\/[^/]+\.webp)$/i.exec(raw);
+    return m ? "urunler/" + size + "/" + m[1] : raw;
+}
+function CachedImage({ src, size, ...props }) {
     const raw = safeAssetSource(src);
+    const shown = sizedAssetSource(raw, size);
     /* Beyaz zeminli ürün fotoğrafları ("...w.webp") kırpılmaz; ürün tamamen görünür. */
     const white = typeof raw === "string" && /w\.webp$/i.test(raw);
-    return React.createElement("img", { ...props, className: (props.className || "") + (white ? " img-white" : ""), src: raw || undefined, referrerPolicy: "no-referrer", decoding: props.decoding || "async", onError: (e) => { try { e.currentTarget.style.visibility = "hidden"; e.currentTarget.alt = ""; } catch (_) { } if (props.onError) props.onError(e); } });
+    return React.createElement("img", { ...props, className: (props.className || "") + (white ? " img-white" : ""), src: shown || undefined, referrerPolicy: "no-referrer", decoding: props.decoding || "async", onError: (e) => { try { if (shown !== raw && raw && e.currentTarget.getAttribute("src") !== raw) { e.currentTarget.src = raw; return; } } catch (_) { } try { e.currentTarget.style.visibility = "hidden"; e.currentTarget.alt = ""; } catch (_) { } if (props.onError) props.onError(e); } });
 }
 function isDataImageSource(src) {
     return typeof src === 'string' && /^data:image\//i.test(src);
@@ -4144,6 +4162,12 @@ function App() {
         }));
         if (!multi.length)
             return;
+        /* Telefon/tablet ve zayıf cihazlarda kartlar kendi kendine dönmez (ısınma ve kasmayı önler). */
+        try {
+            if (window.matchMedia("(hover: none)").matches || window.matchMedia("(prefers-reduced-motion: reduce)").matches || (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4)
+                return;
+        }
+        catch (_) { }
         let cursor = 0;
         const timer = setInterval(() => {
             if (document.hidden || selectedProductRef.current)
@@ -4194,7 +4218,9 @@ function App() {
     const [pageScrolled, setPageScrolled] = useState(false), [barStuck, setBarStuck] = useState(false);
     useEffect(() => {
         /* Üst şerit ve kategori çubuğu arka planı yalnızca kaydırınca görünür; açılışta sayfanın degrade arka planı bozulmaz. */
-        const onScroll = () => {
+        let raf = 0;
+        const measure = () => {
+            raf = 0;
             setPageScrolled(window.scrollY > 12);
             const el = categoryBarRef.current;
             if (el) {
@@ -4202,10 +4228,11 @@ function App() {
                 setBarStuck(el.getBoundingClientRect().top <= top + 1 && window.scrollY > 0);
             }
         };
-        onScroll();
+        const onScroll = () => { if (!raf) raf = requestAnimationFrame(measure); };
+        measure();
         window.addEventListener("scroll", onScroll, { passive: true });
         window.addEventListener("resize", onScroll);
-        return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); };
+        return () => { if (raf) cancelAnimationFrame(raf); window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); };
     }, [loading]);
     useEffect(() => { selectedProductRef.current = selectedProduct; }, [selectedProduct]);
     /* Açık pencere varken arka plan kaymasın; Esc ile en üstteki pencere kapansın. */
@@ -6267,7 +6294,7 @@ function App() {
                         e.stopPropagation();
                         delete e.currentTarget.dataset.swiped;
                     } }, style: { touchAction: "pan-y" } },
-                    React.createElement(CachedImage, { key: `${item.id}-${idx}`, className: "product-gallery-img", src: g[idx], alt: productDisplay(item), loading: "lazy", decoding: "async", fetchpriority: "low", draggable: "false" }),
+                    React.createElement(CachedImage, { key: `${item.id}-${idx}`, className: "product-gallery-img", size: "k", src: g[idx], alt: productDisplay(item), loading: "lazy", decoding: "async", fetchpriority: "low", draggable: "false" }),
                     g.length > 1 && React.createElement("div", { className: "gallery-dots" }, g.slice(0, 7).map((_, i) => React.createElement("span", { key: i, className: 'gallery-dot ' + (i === idx ? 'active' : '') })))); })()),
                 React.createElement("div", { className: "p-3 flex flex-col" },
                     q && React.createElement("div", { className: "text-[9px] uppercase tracking-wider font-bold mb-1 truncate", style: { color: theme.accent } }, getText(language, item.categoryName, item.categoryName_en, item.categoryName)),
@@ -6298,7 +6325,7 @@ function App() {
                         else if (e.currentTarget.dataset.moved !== "1" && g.length) {
                             setFullScreenImage({ images: g, index: (detailGalleryIndex || 0) % g.length });
                             setLightboxZoom(1);
-                        } }, style: { backgroundColor: theme.accent + "12", touchAction: "pan-y" } }, (() => { const g = Array.isArray(selectedProduct.images) && selectedProduct.images.length ? selectedProduct.images : (selectedProduct.image ? [selectedProduct.image] : []); const idx = (detailGalleryIndex || 0) % Math.max(g.length, 1); return g.length ? React.createElement(CachedImage, { key: `detail-${selectedProduct.id}-${idx}`, loading: "lazy", src: g[idx], alt: productDisplay(selectedProduct), className: "detail-gallery-img", decoding: "async", draggable: "false" }) : React.createElement("div", { style: { height: "100%", display: "flex", alignItems: "center", justifyContent: "center" } },
+                        } }, style: { backgroundColor: theme.accent + "12", touchAction: "pan-y" } }, (() => { const g = Array.isArray(selectedProduct.images) && selectedProduct.images.length ? selectedProduct.images : (selectedProduct.image ? [selectedProduct.image] : []); const idx = (detailGalleryIndex || 0) % Math.max(g.length, 1); return g.length ? React.createElement(CachedImage, { key: `detail-${selectedProduct.id}-${idx}`, loading: "lazy", size: "m", src: g[idx], alt: productDisplay(selectedProduct), className: "detail-gallery-img", decoding: "async", draggable: "false" }) : React.createElement("div", { style: { height: "100%", display: "flex", alignItems: "center", justifyContent: "center" } },
                         React.createElement(Icon, { type: "image", size: 40 })); })()),
                     (() => { const g = Array.isArray(selectedProduct.images) && selectedProduct.images.length ? selectedProduct.images : (selectedProduct.image ? [selectedProduct.image] : []); return g.length > 1 && React.createElement("div", { className: "detail-gallery-dots" }, g.map((_, i) => React.createElement("span", { key: i, className: 'detail-gallery-dot ' + (i === detailGalleryIndex ? 'active' : '') }))); })()),
                 React.createElement("div", { className: "p-5" },
@@ -6319,7 +6346,7 @@ function App() {
                         normalizePrice(selectedProduct.price).parts.length > 0 ? React.createElement("div", { className: "space-y-2" }, normalizePrice(selectedProduct.price).parts.map(part => React.createElement("div", { key: part.id, className: "price-row rounded-xl p-3 flex items-center justify-between gap-3" },
                             discountActive && !part.contactOnly && React.createElement("input", { type: "checkbox", "aria-label": (partDisplay(part) || "") + (language === "EN" ? " — apply discount" : " — iskonto uygula"), checked: !!discSel[discKey(selectedProduct, part)], onChange: e => { const k = discKey(selectedProduct, part), c = e.target.checked; setDiscSel(prev => ({ ...prev, [k]: c })); }, style: { width: 22, height: 22, flexShrink: 0, accentColor: theme.accent } }),
                             layoutOfItem(selectedProduct) === "models" && part.image && React.createElement("button", { type: "button", "aria-label": (partDisplay(part) || "") + (language === "EN" ? " photo" : " fotoğrafı"), onClick: () => { setFullScreenImage({ images: [part.image], index: 0 }); setLightboxZoom(1); }, className: "shrink-0 w-14 h-14 rounded-lg overflow-hidden", style: { background: "#f4f2ee" } },
-                                React.createElement(CachedImage, { src: part.image, alt: "", className: "w-full h-full object-contain", loading: "lazy", decoding: "async" })),
+                                React.createElement(CachedImage, { src: part.image, size: "k", alt: "", className: "w-full h-full object-contain", loading: "lazy", decoding: "async" })),
                             React.createElement("div", { className: "text-sm font-medium flex-1 min-w-0" },
                                 React.createElement("div", null, partDisplay(part)),
                                 partDimensionDisplay(part) && React.createElement("div", { className: "text-[11px] opacity-80 mt-1" },
@@ -6343,7 +6370,7 @@ function App() {
                     Array.isArray(selectedProduct.techImages) && selectedProduct.techImages.length > 0 && React.createElement("div", { className: "mt-5" },
                         React.createElement("div", { className: "text-[11px] uppercase tracking-widest font-bold opacity-60 mb-2" }, language === "EN" ? "Technical dimensions" : "Teknik ölçüler"),
                         React.createElement("div", { className: "grid grid-cols-2 gap-2" }, selectedProduct.techImages.map((src, ti) => React.createElement("button", { key: src, type: "button", "aria-label": (language === "EN" ? "Open dimension drawing " : "Ölçü çizimini aç ") + (ti + 1), onClick: () => { setFullScreenImage({ images: selectedProduct.techImages, index: ti }); setLightboxZoom(1); }, className: "rounded-xl overflow-hidden", style: { background: "#efefef", border: "1px solid " + theme.text + "18" } },
-                            React.createElement(CachedImage, { src: src, alt: "", className: "w-full h-28 object-contain", loading: "lazy", decoding: "async" }))))),
+                            React.createElement(CachedImage, { src: src, size: "k", alt: "", className: "w-full h-28 object-contain", loading: "lazy", decoding: "async" }))))),
                     data.phone && React.createElement("a", { href: "tel:" + data.phone.replace(/\s/g, ""), className: "mt-5 w-full py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-sm", style: { background: theme.accent, color: ink } },
                         React.createElement(Icon, { type: "phone", size: 16 }),
                         t(language, "call"))))),
