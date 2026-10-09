@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-YXoxmAQhxHqwKut3gL2h5cIlUmsOEIvg1NU8+cGcXQM=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-lRrAgnyu32BI45AWhcvawJYGuSBuCv7e4BqwTj6Gpmg=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -237,8 +237,10 @@ body::before,body::after,#root::before,#root::after,.category-chip.active::after
 .adm-page{padding:26px 32px 120px;max-width:1240px;display:flex;flex-direction:column;gap:20px}
 .adm-page-wide{max-width:none}
 .adm-legacy{padding:24px 32px 80px;max-width:760px}
-.adm-shell.is-light .adm-legacy{filter:invert(1) hue-rotate(180deg)}
-.adm-shell.is-light .adm-legacy img,.adm-shell.is-light .adm-legacy video,.adm-shell.is-light .adm-legacy canvas{filter:invert(1) hue-rotate(180deg)}
+.adm-shell.is-light .adm-legacy{filter:invert(1) hue-rotate(180deg);color:#F3F0E8}
+.adm-shell.is-light .adm-legacy .text-amber-500{color:#FDE68A}
+.adm-shell.is-light .adm-warn{color:#8A5A00!important}
+.adm-shell.is-light .adm-legacy img,.adm-shell.is-light .adm-legacy video,.adm-shell.is-light .adm-legacy canvas,.adm-shell.is-light .adm-legacy .tpl-thumb{filter:invert(1) hue-rotate(180deg)}
 .adm-legacy > div{padding:0!important}
 .adm-legacy .sticky.bottom-0{display:none}
 .adm-eyebrow{font-size:12px;letter-spacing:.16em;color:var(--adm-accent,#C9A227);font-weight:800;text-transform:uppercase}
@@ -3751,7 +3753,7 @@ function PdfPreviewModal({ preview, language, onClose, onDownload }) {
 /* Yönetim panelindeki şablon seçicisi için küçük şematik önizleme. */
 function CatalogTemplateThumb({ id, accent }) {
     const a = accent || "#C9A227", img = "#3a3a3a", ln = "#5a5a5a", bg = "#f4f2ee";
-    const page = c => React.createElement("svg", { viewBox: "0 0 60 80", className: "w-full h-auto rounded-md", "aria-hidden": "true", style: { background: bg, maxHeight: 96 } }, c);
+    const page = c => React.createElement("svg", { viewBox: "0 0 60 80", className: "tpl-thumb w-full h-auto rounded-md", "aria-hidden": "true", style: { background: bg, maxHeight: 96 } }, c);
     if (id === "model")
         return page(React.createElement(React.Fragment, null,
             React.createElement("rect", { x: "5", y: "6", width: "50", height: "4", fill: "#111" }),
@@ -6369,7 +6371,7 @@ function App() {
                                     React.createElement("input", { type: "range", min: "40", max: "220", value: data.logo.height || 110, onChange: e => setPath(["logo", "height"], Number(e.target.value)), className: "w-full" }))),
                             React.createElement("div", { className: "mt-4" },
                                 React.createElement(AdminLabel, null, "Logo Konumu"),
-                                React.createElement("div", { className: "grid grid-cols-3 gap-2" }, [["left", "Sol"], ["center", "Orta"], ["right", "Sağ"]].map(([v, l]) => React.createElement("button", { key: v, onClick: () => setPath(["logo", "position"], v), className: "py-2 rounded-lg text-xs font-semibold", style: { background: data.logo.position === v ? theme.accent : "#1c1c1c", color: "#fff" } }, l))))),
+                                React.createElement("div", { className: "grid grid-cols-3 gap-2" }, [["left", "Sol"], ["center", "Orta"], ["right", "Sağ"]].map(([v, l]) => React.createElement("button", { key: v, onClick: () => setPath(["logo", "position"], v), className: "py-2 rounded-lg text-xs font-semibold", style: (sel => ({ background: sel ? (isLightHex(theme.bg) ? "#EDEDED" : theme.accent) : "#1c1c1c", color: sel ? (isLightHex(theme.bg) ? "#111" : ink) : "#ddd" }))(data.logo.position === v) }, l))))),
                         React.createElement("div", { className: "bg-neutral-900 rounded-xl p-4 mb-5" },
                             React.createElement("div", { className: "text-[10px] uppercase tracking-widest font-bold text-amber-500 mb-3" }, "Katalog Yedekleme"),
                             React.createElement("div", { className: "grid grid-cols-2 gap-2" },
@@ -6404,7 +6406,7 @@ function App() {
                         React.createElement("div", { className: "text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-3" }, t("TR", "currency")),
                         React.createElement("div", { className: "bg-neutral-900 rounded-xl p-4 mb-5" },
                             React.createElement("div", { className: "text-xs text-neutral-400 mb-3" }, "Katalogun varsayılan para birimi:"),
-                            React.createElement("div", { className: "grid grid-cols-3 gap-2 mb-4" }, CURRENCIES.map(c => React.createElement("button", { key: c.id, onClick: () => setPath(["currency", "selected"], c.id), className: "py-2.5 rounded-lg text-xs font-bold", style: (sel => { const acc = isLightHex(theme.bg) ? "#EDEDED" : theme.accent, ink2 = isLightHex(theme.bg) ? "#111" : "#fff"; return { background: sel ? acc : "#171717", color: sel ? ink2 : "#999", border: "1px solid " + (sel ? acc : "#333") }; })(currency.id === c.id) },
+                            React.createElement("div", { className: "grid grid-cols-3 gap-2 mb-4" }, CURRENCIES.map(c => React.createElement("button", { key: c.id, onClick: () => setPath(["currency", "selected"], c.id), className: "py-2.5 rounded-lg text-xs font-bold", style: (sel => { const acc = isLightHex(theme.bg) ? "#EDEDED" : theme.accent, ink2 = isLightHex(theme.bg) ? "#111" : ink; return { background: sel ? acc : "#171717", color: sel ? ink2 : "#999", border: "1px solid " + (sel ? acc : "#333") }; })(currency.id === c.id) },
                                 c.symbol,
                                 " ",
                                 c.name))),
@@ -6638,7 +6640,7 @@ function App() {
                                         React.createElement("button", { type: "button", disabled: !category.coverImage, onClick: () => removeCategoryCover(category.id), className: "min-h-[36px] py-2 rounded-lg bg-red-950 text-red-400 text-[11px] font-bold disabled:opacity-30" }, "Sil")),
                                     React.createElement("input", { id: "cover-image-" + category.id, type: "file", accept: "image/*", className: "hidden", onChange: e => uploadCategoryCover(category.id, e) })))))),
                     React.createElement("div", { className: "sticky bottom-0 bg-neutral-950 border-t border-neutral-800 p-4" },
-                        React.createElement("button", { type: "button", onClick: save, disabled: saving || !data, className: "w-full py-3.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50", style: { background: saved ? "#12B76A" : theme.accent, animation: saved ? "pop .3s ease" : saving ? "none" : "pulse 2.2s infinite" } },
+                        React.createElement("button", { type: "button", onClick: save, disabled: saving || !data, className: "w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50", style: { color: saved ? "#fff" : ink, background: saved ? "#12B76A" : theme.accent, animation: saved ? "pop .3s ease" : saving ? "none" : "pulse 2.2s infinite" } },
                             saved ? React.createElement(Icon, { type: "check", size: 17 }) : React.createElement(Icon, { type: "save", size: 17 }),
                             " ",
                             saved ? t("TR", "saved") : saving ? t("TR", "saving") : t("TR", "save"))))));
