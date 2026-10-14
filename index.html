@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-5B7VLk3RKBuzfAdyGEdADgVbL0aQbDo5enjILBtzvnA=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ZcgQ3CFqtEmOJ2Zyp/pQqvwkvSfahMdtb57LVqmwfHs=' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -7409,8 +7409,8 @@ function App() {
                         React.createElement("div", { className: "flex gap-2 mb-5" },
                             React.createElement("input", { className: "admin-input flex-1", type: "password", value: newPinInput, placeholder: "Yeni PIN (4-8 hane)", inputMode: "numeric", maxLength: "8", autoComplete: "new-password", onChange: e => setNewPinInput(e.target.value.replace(/\D/g, "")), style: { letterSpacing: ".3em" } }),
                             React.createElement("button", { type: "button", onClick: changePin, className: "px-4 rounded-lg text-sm font-bold shrink-0", style: { background: theme.accent, color: ink } }, "G\u00FCncelle")),
-                        React.createElement("button", { onClick: resetDefault, className: "w-full py-2.5 bg-neutral-900 border border-neutral-700 rounded-lg text-xs text-red-400" }, "Varsay\u0131lan Ayarlara D\u00F6n"),
-                        React.createElement("button", { onClick: resetAllContent, className: "w-full mt-2 py-2.5 bg-red-950 border border-red-900 rounded-lg text-xs font-bold text-red-400" }, "T\u00FCm \u0130\u00E7eri\u011Fi S\u0131f\u0131rla (Bo\u015F \u015Eablon)")),
+                        false && React.createElement("button", { onClick: resetDefault, className: "w-full py-2.5 bg-neutral-900 border border-neutral-700 rounded-lg text-xs text-red-400" }, "Varsay\u0131lan Ayarlara D\u00F6n"),
+                        false && React.createElement("button", { onClick: resetAllContent, className: "w-full mt-2 py-2.5 bg-red-950 border border-red-900 rounded-lg text-xs font-bold text-red-400" }, "T\u00FCm \u0130\u00E7eri\u011Fi S\u0131f\u0131rla (Bo\u015F \u015Eablon)")),
                     React.createElement("div", { className: adminSection === "fiyat" ? "" : "hidden" },
                         React.createElement("div", { className: "text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-3" }, "Vadeli Fiyat"),
                         React.createElement("div", { className: "bg-neutral-900 rounded-xl p-4 mb-5" },
